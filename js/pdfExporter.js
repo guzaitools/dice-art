@@ -18,23 +18,33 @@ export default class PDFExporter {
 
         // Title / Logo for Page 1
         try {
-            const logoImg = new Image();
-            logoImg.src = 'assets/icons/logo_pdf.png';
-            await new Promise((resolve) => {
-                logoImg.onload = resolve;
-                logoImg.onerror = resolve;
-            });
+            const paths = ['assets/icons/logo_pdf.png', 'assets/icons/logo.png'];
+            let loaded = false;
 
-            if (logoImg.complete && logoImg.naturalWidth > 0) {
-                // Increase size by 2.5x (original was 40)
-                const logoWidth = 100;
-                const logoHeight = (logoImg.height * logoWidth) / logoImg.width;
-                doc.addImage(logoImg, 'PNG', margin, 15, logoWidth, logoHeight);
-            } else {
+            for (const path of paths) {
+                const logoImg = new Image();
+                logoImg.src = path;
+                await new Promise((resolve) => {
+                    logoImg.onload = () => { loaded = true; resolve(); };
+                    logoImg.onerror = resolve;
+                });
+
+                if (loaded && logoImg.naturalWidth > 0) {
+                    const logoWidth = pageWidth / 2.5;
+                    const logoHeight = (logoImg.height * logoWidth) / logoImg.width;
+                    const logoX = (pageWidth - logoWidth) / 2;
+                    doc.addImage(logoImg, 'PNG', logoX, 10, logoWidth, logoHeight);
+                    break;
+                }
+            }
+
+            if (!loaded) {
                 doc.setTextColor(0, 0, 0);
                 doc.setFont('helvetica', 'bold');
                 doc.setFontSize(18);
-                doc.text('DICE ART', margin, 25);
+                const titleText = 'DICE ART';
+                const titleWidth = doc.getTextWidth(titleText);
+                doc.text(titleText, (pageWidth - titleWidth) / 2, 25);
             }
         } catch (e) {
             console.warn('Failed to load logo for PDF:', e);
@@ -50,8 +60,8 @@ export default class PDFExporter {
         doc.addImage(diceImgData, 'JPEG', margin, mosaicY, mosaicWidth, mosaicHeight);
 
         // Grid overlay
-        doc.setDrawColor(0, 0, 0);
-        doc.setLineWidth(0.05); // Very thin line
+        doc.setDrawColor(255, 255, 255);
+        doc.setLineWidth(0.2); // Visible white lines
         const cellWidth = mosaicWidth / metadata.gridWidth;
         const cellHeight = mosaicHeight / metadata.gridHeight;
 
@@ -139,6 +149,6 @@ export default class PDFExporter {
         doc.setTextColor(100, 100, 100);
         doc.text('create your own dice art at diceart.gustaviano.online', margin, pageHeight - 10);
 
-        doc.save('dice-art-project.pdf');
+        return doc.output('blob');
     }
 }

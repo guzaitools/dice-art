@@ -89,7 +89,7 @@ function applySettingsToUI() {
   dieColorInput.value = currentSettings.dieColor;
   pointColorInput.value = currentSettings.pointColor;
   sourceGrayscaleToggle.checked = currentSettings.sourceGrayscale;
-  document.getElementById('diceSizeToggle').checked = currentSettings.diceSize === 10;
+  sourceGrayscaleToggle.checked = currentSettings.sourceGrayscale;
 
   // Update color selector highlighting
   updateColorSelectors('dieColorSelectors', currentSettings.dieColor);
@@ -173,11 +173,25 @@ function setupEventListeners() {
     saveSettings();
   });
 
-  const diceSizeToggle = document.getElementById('diceSizeToggle');
-  diceSizeToggle.addEventListener('change', (e) => {
-    currentSettings.diceSize = e.target.checked ? 10 : 5;
-    processAndRender();
-    saveSettings();
+  // Modal Size Selectors
+  const sizeButtons = document.querySelectorAll('.size-btn');
+  sizeButtons.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const size = parseInt(btn.getAttribute('data-size'));
+      currentSettings.diceSize = size;
+      document.getElementById('modalDiceSize').value = size;
+
+      // Update UI
+      sizeButtons.forEach(b => {
+        b.classList.remove('border-primary', 'bg-primary/20');
+        b.classList.add('border-white/10');
+      });
+      btn.classList.add('border-primary', 'bg-primary/20');
+      btn.classList.remove('border-white/10');
+
+      // Re-process for visual update if needed (though it mainly affects export)
+      debounceProcess();
+    });
   });
 
   // Color Selector Listeners
@@ -326,14 +340,7 @@ downloadPdfBtn.addEventListener('click', async () => {
     };
 
     const blob = await pdfExporter.exportProject(diceCanvas, originalCanvas, metadata);
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'dice-art-project-instructions.pdf';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    exporter3mf.saveFile(blob, 'dice-art-project-instructions.pdf');
   } catch (error) {
     console.error('Error exporting PDF:', error);
     alert('Error generating PDF. Please try again.');
@@ -359,7 +366,7 @@ exportMultiPlateBtn.addEventListener('click', async () => {
       lastResult.gridHeight,
       currentSettings.diceSize
     );
-    exporter3mf.saveFile(blob, `dice-art-multi-plate-10x10-${currentSettings.diceSize}mm.3mf`);
+    exporter3mf.saveFile(blob, `dice-art-multi-plate-grouped-${currentSettings.diceSize}mm.3mf`);
   } catch (error) {
     console.error('Error exporting Multi-Plate:', error);
     alert('Error generating Grouped Multi-Plate export.');
@@ -378,6 +385,20 @@ const confirmExportBtn = document.getElementById('confirmExportBtn');
 
 export3dPrintBtn.addEventListener('click', () => {
   if (!lastResult) return;
+
+  // Sync modal UI with currentSettings before showing
+  const sizeButtons = document.querySelectorAll('.size-btn');
+  sizeButtons.forEach(btn => {
+    const size = parseInt(btn.getAttribute('data-size'));
+    if (size === currentSettings.diceSize) {
+      btn.classList.add('border-primary', 'bg-primary/20');
+      btn.classList.remove('border-white/10');
+    } else {
+      btn.classList.remove('border-primary', 'bg-primary/20');
+      btn.classList.add('border-white/10');
+    }
+  });
+
   exportModal.classList.remove('hidden');
 });
 
@@ -399,11 +420,7 @@ confirmExportBtn.addEventListener('click', async () => {
 
   // UI Feedback in Modal
   confirmExportBtn.disabled = true;
-  cancelExportBtn.disabled = true;
-  const btnText = document.getElementById('exportBtnText');
   const spinner = document.getElementById('exportSpinner');
-  const originalBtnText = btnText.textContent;
-  btnText.textContent = 'Processing...';
   spinner.classList.remove('hidden');
 
   try {
@@ -414,38 +431,43 @@ confirmExportBtn.addEventListener('click', async () => {
       currentSettings.diceSize,
       options
     );
-
-    const includePdf = document.getElementById('modalIncludePdf').checked;
-    if (includePdf) {
-      console.log("Bundling PDF instructions in ZIP...");
-      const stats = diceRenderer.getDiceStats(lastResult.diceLevels);
-      const metadata = {
-        gridWidth: lastResult.gridWidth,
-        gridHeight: lastResult.gridHeight,
-        totalDice: lastResult.totalDice,
-        stats: stats,
-        colors: { dieColor: currentSettings.dieColor, pointColor: currentSettings.pointColor }
-      };
-      const pdfBlob = await pdfExporter.exportProject(diceCanvas, originalCanvas, metadata);
-
-      const zip = new JSZip();
-      zip.file(`print-model-${currentSettings.diceSize}mm.3mf`, threeMfBlob);
-      zip.file('assembly-instructions.pdf', pdfBlob);
-      const zipBlob = await zip.generateAsync({ type: 'blob' });
-      exporter3mf.saveFile(zipBlob, `dice-art-bundle-${currentSettings.diceSize}mm.zip`);
-    } else {
-      exporter3mf.saveFile(threeMfBlob, `dice-art-print-${currentSettings.diceSize}mm.3mf`);
-    }
+    exporter3mf.saveFile(threeMfBlob, `dice-art-print-${currentSettings.diceSize}mm.3mf`);
   } catch (error) {
     console.error('Error exporting 3D Print:', error);
     alert('Error generating 3D Print 3MF.');
   } finally {
-    // Reset and Close Modal
     confirmExportBtn.disabled = false;
-    cancelExportBtn.disabled = false;
-    btnText.textContent = originalBtnText;
     spinner.classList.add('hidden');
-    closeModal();
+  }
+});
+
+const modalDownloadPdfBtn = document.getElementById('modalDownloadPdfBtn');
+modalDownloadPdfBtn.addEventListener('click', async () => {
+  if (!lastResult) return;
+
+  modalDownloadPdfBtn.disabled = true;
+  const originalContent = modalDownloadPdfBtn.innerHTML;
+  modalDownloadPdfBtn.innerHTML = '<i data-lucide="sync" class="w-4 h-4 animate-spin"></i>';
+  lucide.createIcons();
+
+  try {
+    const stats = diceRenderer.getDiceStats(lastResult.diceLevels);
+    const metadata = {
+      gridWidth: lastResult.gridWidth,
+      gridHeight: lastResult.gridHeight,
+      totalDice: lastResult.totalDice,
+      stats: stats,
+      colors: { dieColor: currentSettings.dieColor, pointColor: currentSettings.pointColor }
+    };
+    const pdfBlob = await pdfExporter.exportProject(diceCanvas, originalCanvas, metadata);
+    exporter3mf.saveFile(pdfBlob, `dice-art-instructions-${currentSettings.diceSize}mm.pdf`);
+  } catch (error) {
+    console.error('Error exporting Modal PDF:', error);
+    alert('Error generating PDF.');
+  } finally {
+    modalDownloadPdfBtn.disabled = false;
+    modalDownloadPdfBtn.innerHTML = originalContent;
+    lucide.createIcons();
   }
 });
 
