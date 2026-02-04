@@ -173,9 +173,12 @@ export default class Exporter3MF {
         const diffs = [];
         if (options.primeTower) diffs.push("enable_prime_tower");
         if (options.raft) diffs.push("raft_layers");
+        const diffStr = diffs.join(';');
 
         if (Array.isArray(config.different_settings_to_system)) {
-          config.different_settings_to_system[0] = diffs.join(';');
+          for (let i = 0; i < config.different_settings_to_system.length; i++) {
+            config.different_settings_to_system[i] = diffStr;
+          }
         }
         projectSettings = JSON.stringify(config, null, 4);
       } catch (e) {
@@ -412,13 +415,14 @@ ${buildXML} </build>
         const diffs = [];
         if (options.primeTower) diffs.push("enable_prime_tower");
         if (options.raft) diffs.push("raft_layers");
+        const diffStr = diffs.join(';');
 
         // Resize arrays that must match plate count
         const resize = (key, fill) => {
           if (Array.isArray(config[key])) {
             config[key] = Array(plateCount).fill(fill);
-            if (key === 'different_settings_to_system' && plateCount > 0) {
-              config[key][0] = diffs.join(';');
+            if (key === 'different_settings_to_system') {
+              for (let i = 0; i < plateCount; i++) config[key][i] = diffStr;
             }
           }
         };
