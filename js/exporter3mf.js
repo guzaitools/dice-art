@@ -2,7 +2,7 @@ import JSZip from 'jszip';
 
 export default class Exporter3MF {
     constructor() {
-        this.templatePath = 'assets/3mf/template/';
+        this.templatePath = '/3mf-template/';
     }
 
     async generate3MF(diceLevels, gridWidth, gridHeight) {
