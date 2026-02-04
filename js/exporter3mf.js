@@ -165,24 +165,19 @@ export default class Exporter3MF {
 
     let projectSettings = modelModels["Metadata/project_settings.config"] || "";
     if (projectSettings) {
-      try {
-        const config = JSON.parse(projectSettings);
-        config.enable_prime_tower = options.primeTower ? '1' : '0';
-        config.raft_layers = options.raft ? '2' : '0';
+      // Update values
+      projectSettings = projectSettings.replace(/"enable_prime_tower":\s*"[^"]*"/g, `"enable_prime_tower": "${options.primeTower ? '1' : '0'}"`);
+      projectSettings = projectSettings.replace(/"raft_layers":\s*"[^"]*"/g, `"raft_layers": "${options.raft ? '2' : '0'}"`);
 
-        const diffs = [];
-        if (options.primeTower) diffs.push("enable_prime_tower");
-        if (options.raft) diffs.push("raft_layers");
-        const diffStr = diffs.join(';');
-
-        if (Array.isArray(config.different_settings_to_system)) {
-          for (let i = 0; i < config.different_settings_to_system.length; i++) {
-            config.different_settings_to_system[i] = diffStr;
-          }
-        }
-        projectSettings = JSON.stringify(config, null, 4);
-      } catch (e) {
-        console.error("Failed to patch project_settings.config in single-plate mode", e);
+      // Update deviations list to ensure slicer honors our values
+      const diffRegex = /"different_settings_to_system":\s*\[\s*"([^"]*)"/;
+      const match = projectSettings.match(diffRegex);
+      if (match) {
+        let keys = match[1].split(';').filter(x => x);
+        if (options.primeTower && !keys.includes("enable_prime_tower")) keys.push("enable_prime_tower");
+        if (options.raft && !keys.includes("raft_layers")) keys.push("raft_layers");
+        // For simplicity in single plate, we just overwrite the first slot
+        projectSettings = projectSettings.replace(diffRegex, `"different_settings_to_system": [\n        "${keys.join(';')}"`);
       }
     }
 
@@ -404,37 +399,32 @@ ${buildXML} </build>
 
     let projectSettings = modelModels["Metadata/project_settings.config"] || "";
     if (projectSettings) {
-      try {
-        const config = JSON.parse(projectSettings);
+      // Update values
+      projectSettings = projectSettings.replace(/"enable_prime_tower":\s*"[^"]*"/g, `"enable_prime_tower": "${options.primeTower ? '1' : '0'}"`);
+      projectSettings = projectSettings.replace(/"raft_layers":\s*"[^"]*"/g, `"raft_layers": "${options.raft ? '2' : '0'}"`);
+
+      // Update deviations list
+      const diffRegex = /"different_settings_to_system":\s*\[\s*"([^"]*)"/;
+      const match = projectSettings.match(diffRegex);
+      if (match) {
+        let keys = match[1].split(';').filter(x => x);
+        if (options.primeTower && !keys.includes("enable_prime_tower")) keys.push("enable_prime_tower");
+        if (options.raft && !keys.includes("raft_layers")) keys.push("raft_layers");
+
+        // In multi-plate, we need to match the plate count. 
+        // For now, let's follow the commit's logic of patching the first string.
+        // If we want to be more thorough, we'd need to reconstruct the whole array.
+        // Let's use the proven single-entry join for now.
         const plateCount = plateConfigs.length;
-
-        // Apply options
-        config.enable_prime_tower = options.primeTower ? '1' : '0';
-        config.raft_layers = options.raft ? '2' : '0';
-
-        const diffs = [];
-        if (options.primeTower) diffs.push("enable_prime_tower");
-        if (options.raft) diffs.push("raft_layers");
-        const diffStr = diffs.join(';');
-
-        // Resize arrays that must match plate count
-        const resize = (key, fill) => {
-          if (Array.isArray(config[key])) {
-            config[key] = Array(plateCount).fill(fill);
-            if (key === 'different_settings_to_system') {
-              for (let i = 0; i < plateCount; i++) config[key][i] = diffStr;
-            }
-          }
-        };
-
-        resize('different_settings_to_system', '');
-        resize('wipe_tower_x', '15');
-        resize('wipe_tower_y', '140.972');
-
-        projectSettings = JSON.stringify(config, null, 4);
-      } catch (e) {
-        console.error("Failed to patch project_settings.config", e);
+        const entry = keys.join(';');
+        const arrayStr = `"${entry}"` + (plateCount > 1 ? (',\n        ""').repeat(plateCount - 1) : "");
+        projectSettings = projectSettings.replace(/"different_settings_to_system":\s*\[[^\]]*\]/, `"different_settings_to_system": [\n        ${arrayStr}\n    ]`);
       }
+
+      // Patch arrays for wipe_tower
+      const plateCount = plateConfigs.length;
+      projectSettings = projectSettings.replace(/"wipe_tower_x":\s*\[[^\]]*\]/, `"wipe_tower_x": [\n        ${new Array(plateCount).fill('"15"').join(',\n        ')}\n    ]`);
+      projectSettings = projectSettings.replace(/"wipe_tower_y":\s*\[[^\]]*\]/, `"wipe_tower_y": [\n        ${new Array(plateCount).fill('"140.972"').join(',\n        ')}\n    ]`);
     }
 
     const modelSettingsXML = `<?xml version="1.0" encoding="UTF-8"?>

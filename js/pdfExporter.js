@@ -33,7 +33,7 @@ export default class PDFExporter {
                     const logoWidth = pageWidth / 2.5;
                     const logoHeight = (logoImg.height * logoWidth) / logoImg.width;
                     const logoX = (pageWidth - logoWidth) / 2;
-                    doc.addImage(logoImg, 'PNG', logoX, 10, logoWidth, logoHeight);
+                    doc.addImage(logoImg, 'PNG', logoX, 15, logoWidth, logoHeight);
                     break;
                 }
             }
