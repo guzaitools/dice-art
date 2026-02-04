@@ -1,101 +1,111 @@
-import ImageProcessor from './js/imageProcessor.js';
-import DiceRenderer from './js/diceRenderer.js';
-import PDFExporter from './js/pdfExporter.js';
-import Exporter3MF from './js/exporter3mf.js';
-import ExporterSCAD from './js/scadExporter.js';
+import AppController from './js/core/AppController.js';
 
 /**
- * Main Application Controller
- * Orchestrates the Dice Art application
+ * Main Application Entry Point
+ * Initializes and wires the Dice Art application using AppController
  */
 
-// Initialize modules
-const imageProcessor = new ImageProcessor();
-const diceRenderer = new DiceRenderer();
-const pdfExporter = new PDFExporter();
-const exporter3mf = new Exporter3MF();
-const scadExporter = new ExporterSCAD();
+// Get all DOM element references
+const domElements = {
+  // Sections
+  uploadSection: document.getElementById('uploadSection'),
+  processingSection: document.getElementById('processingSection'),
+  examplesSection: document.getElementById('examplesSection'),
+  appHeader: document.getElementById('appHeader'),
 
-// Last processing result for export
-let lastResult = null;
+  // Upload area
+  uploadArea: document.getElementById('uploadArea'),
+  uploadBtn: document.getElementById('uploadBtn'),
+  fileInput: document.getElementById('fileInput'),
 
-// DOM Elements
-const uploadSection = document.getElementById('uploadSection');
-const processingSection = document.getElementById('processingSection');
-const examplesSection = document.getElementById('examplesSection');
-const appHeader = document.getElementById('appHeader');
-const uploadArea = document.getElementById('uploadArea');
-const comparisonSlider = document.getElementById('comparisonSlider');
-const diceStatsList = document.getElementById('diceStatsList');
-const uploadBtn = document.getElementById('uploadBtn');
-const fileInput = document.getElementById('fileInput');
-const originalCanvas = document.getElementById('originalCanvas');
-const diceCanvas = document.getElementById('diceCanvas');
-const loadingOverlay = document.getElementById('loadingOverlay');
+  // Canvases
+  originalCanvas: document.getElementById('originalCanvas'),
+  diceCanvas: document.getElementById('diceCanvas'),
 
-// Controls
-const gridSizeSlider = document.getElementById('gridSize');
-const gridSizeValue = document.getElementById('gridSizeValue');
-const brightnessSlider = document.getElementById('brightness');
-const brightnessValue = document.getElementById('brightnessValue');
-const dieColorInput = document.getElementById('dieColor');
-const pointColorInput = document.getElementById('pointColor');
-const sourceGrayscaleToggle = document.getElementById('sourceGrayscaleToggle');
-const resetBtn = document.getElementById('resetBtn');
+  // UI Elements
+  loadingOverlay: document.getElementById('loadingOverlay'),
+  comparisonSlider: document.getElementById('comparisonSlider'),
+  diceStatsList: document.getElementById('diceStatsList'),
+  dimensionsInfo: document.getElementById('dimensionsInfo'),
+  totalDiceInfo: document.getElementById('totalDiceInfo'),
 
-// Info displays
-const dimensionsInfo = document.getElementById('dimensionsInfo');
-const totalDiceInfo = document.getElementById('totalDiceInfo');
+  // Controls
+  gridSizeSlider: document.getElementById('gridSize'),
+  gridSizeValue: document.getElementById('gridSizeValue'),
+  brightnessSlider: document.getElementById('brightness'),
+  brightnessValue: document.getElementById('brightnessValue'),
+  contrastSlider: document.getElementById('contrast'),
+  contrastValue: document.getElementById('contrastValue'),
+  dieColorInput: document.getElementById('dieColor'),
+  pointColorInput: document.getElementById('pointColor'),
+  sourceGrayscaleToggle: document.getElementById('sourceGrayscaleToggle'),
+  resetBtn: document.getElementById('resetBtn'),
 
-// Application state
-let currentSettings = {
-  gridSize: 50,
-  brightness: 0,
-  contrast: 0,
-  dieColor: '#000000',
-  pointColor: '#ffffff',
-  sourceGrayscale: true,
-  diceSize: 10,
+  // Export buttons
+  downloadPdfBtn: document.getElementById('downloadPdfBtn'),
+  export3dPrintBtn: document.getElementById('export3dPrintBtn'),
+  exportMultiPlateBtn: document.getElementById('exportMultiPlateBtn'),
+  downloadScadBtn: document.getElementById('downloadScadBtn'),
+  modalDownloadPdfBtn: document.getElementById('modalDownloadPdfBtn'),
+
+  // Modal
+  exportModal: document.getElementById('exportModal'),
+  modalOverlay: document.getElementById('modalOverlay'),
+  cancelExportBtn: document.getElementById('cancelExportBtn'),
+  confirmExportBtn: document.getElementById('confirmExportBtn'),
 };
 
-// Supported formats
-const SUPPORTED_FORMATS = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp'];
+// Initialize app controller
+const app = new AppController({ domElements });
 
-// Load settings from LocalStorage
-function loadSettings() {
-  const saved = localStorage.getItem('diceArtSettings');
-  if (saved) {
-    try {
-      const parsed = JSON.parse(saved);
-      currentSettings = { ...currentSettings, ...parsed };
-      applySettingsToUI();
-    } catch (e) {
-      console.error('Error loading settings:', e);
-    }
+// Debounce helper for performance
+let debounceTimer;
+function debounce(callback, delay = 300) {
+  clearTimeout(debounceTimer);
+  debounceTimer = setTimeout(callback, delay);
+}
+
+/**
+ * Initialize the application
+ */
+async function init() {
+  console.log('Initializing Dice Art application...');
+
+  const initialized = await app.init();
+  if (!initialized) {
+    alert('Failed to initialize application');
+    return;
   }
+
+  setupEventListeners();
+  applySettingsToUI();
+
+  console.log('Application ready!');
 }
 
-// Save settings to LocalStorage
-function saveSettings() {
-  localStorage.setItem('diceArtSettings', JSON.stringify(currentSettings));
-}
-
-// Apply saved settings to UI
+/**
+ * Apply current settings to UI elements
+ */
 function applySettingsToUI() {
-  gridSizeSlider.value = currentSettings.gridSize;
-  gridSizeValue.textContent = currentSettings.gridSize;
-  brightnessSlider.value = currentSettings.brightness;
-  brightnessValue.textContent = currentSettings.brightness;
-  dieColorInput.value = currentSettings.dieColor;
-  pointColorInput.value = currentSettings.pointColor;
-  sourceGrayscaleToggle.checked = currentSettings.sourceGrayscale;
-  sourceGrayscaleToggle.checked = currentSettings.sourceGrayscale;
+  const settings = app.getSettings();
 
-  // Update color selector highlighting
-  updateColorSelectors('dieColorSelectors', currentSettings.dieColor);
-  updateColorSelectors('pointColorSelectors', currentSettings.pointColor);
+  // Update sliders
+  domElements.gridSizeSlider.value = settings.gridSize;
+  domElements.gridSizeValue.textContent = settings.gridSize;
+  domElements.brightnessSlider.value = settings.brightness;
+  domElements.brightnessValue.textContent = settings.brightness;
+  domElements.dieColorInput.value = settings.dieColor;
+  domElements.pointColorInput.value = settings.pointColor;
+  domElements.sourceGrayscaleToggle.checked = settings.sourceGrayscale;
+
+  // Update color selectors
+  updateColorSelectors('dieColorSelectors', settings.dieColor);
+  updateColorSelectors('pointColorSelectors', settings.pointColor);
 }
 
+/**
+ * Update color selector highlighting
+ */
 function updateColorSelectors(containerId, activeColor) {
   const buttons = document.querySelectorAll(`#${containerId} button`);
   buttons.forEach((btn) => {
@@ -107,79 +117,260 @@ function updateColorSelectors(containerId, activeColor) {
   });
 }
 
-// Initialize the application
-async function init() {
-  console.log('Initializing Dice Art application...');
+/**
+ * Setup all event listeners
+ */
+function setupEventListeners() {
+  // File upload
+  domElements.fileInput.addEventListener('change', handleFileSelect);
+  domElements.uploadBtn.addEventListener('click', (e) => {
+    e.preventDefault();
+    domElements.fileInput.click();
+  });
 
-  try {
-    await diceRenderer.loadDiceImages();
-    console.log('Dice images loaded successfully');
-  } catch (error) {
-    console.error('Failed to load dice images:', error);
-    alert('Error al cargar las imágenes de dados.');
-    return;
+  // Drag & drop
+  domElements.uploadArea.addEventListener('dragover', handleDragOver);
+  domElements.uploadArea.addEventListener('dragleave', handleDragLeave);
+  domElements.uploadArea.addEventListener('drop', handleDrop);
+
+  // Sliders
+  domElements.gridSizeSlider.addEventListener('input', (e) => {
+    const value = parseInt(e.target.value);
+    domElements.gridSizeValue.textContent = value;
+    debounce(() => app.updateSetting('gridSize', value));
+  });
+
+  domElements.brightnessSlider.addEventListener('input', (e) => {
+    const value = parseInt(e.target.value);
+    domElements.brightnessValue.textContent = value;
+    debounce(() => app.updateSetting('brightness', value));
+  });
+
+  if (domElements.contrastSlider) {
+    domElements.contrastSlider.addEventListener('input', (e) => {
+      const value = parseInt(e.target.value);
+      if (domElements.contrastValue) domElements.contrastValue.textContent = value;
+      debounce(() => app.updateSetting('contrast', value));
+    });
   }
 
-  loadSettings();
-  setupEventListeners();
+  // Color pickers
+  domElements.dieColorInput.addEventListener('change', (e) => {
+    app.updateSetting('dieColor', e.target.value);
+    updateColorSelectors('dieColorSelectors', e.target.value);
+  });
 
-  // Initial color setup for renderer
-  diceRenderer.generateTintedDice(currentSettings.dieColor, currentSettings.pointColor);
+  domElements.pointColorInput.addEventListener('change', (e) => {
+    app.updateSetting('pointColor', e.target.value);
+    updateColorSelectors('pointColorSelectors', e.target.value);
+  });
+
+  // Color selector buttons
+  setupColorSelector('dieColorSelectors', 'dieColor');
+  setupColorSelector('pointColorSelectors', 'pointColor');
+
+  // Grayscale toggle
+  domElements.sourceGrayscaleToggle.addEventListener('change', (e) => {
+    app.updateSetting('sourceGrayscale', e.target.checked);
+  });
+
+  // Reset button
+  domElements.resetBtn.addEventListener('click', () => {
+    app.reset();
+  });
+
+  // Comparison slider
+  domElements.comparisonSlider.addEventListener('input', (e) => {
+    const percent = e.target.value;
+    const diceWrapper = document.querySelector('.dice-wrapper');
+    if (diceWrapper) {
+      diceWrapper.style.clipPath = `inset(0 ${100 - percent}% 0 0)`;
+    }
+    const comparisonLine = document.querySelector('.comparison-line');
+    if (comparisonLine) comparisonLine.style.left = percent + '%';
+    const comparisonHandle = document.querySelector('.comparison-handle');
+    if (comparisonHandle) comparisonHandle.style.left = percent + '%';
+  });
+
+  // Export buttons
+  setupExportButtons();
 }
 
-// Set up all event listeners
-function setupEventListeners() {
-  fileInput.addEventListener('change', handleFileSelect);
+/**
+ * Setup color selector buttons
+ */
+function setupColorSelector(containerId, settingKey) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
 
-  uploadArea.addEventListener('dragover', handleDragOver);
-  uploadArea.addEventListener('dragleave', handleDragLeave);
-  uploadArea.addEventListener('drop', handleDrop);
-
-  uploadBtn.addEventListener('click', (e) => {
-    e.preventDefault();
-    fileInput.click();
+  const buttons = container.querySelectorAll('button');
+  buttons.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const color = btn.getAttribute('data-color');
+      app.updateSetting(settingKey, color);
+      const input = settingKey === 'dieColor' ? domElements.dieColorInput : domElements.pointColorInput;
+      input.value = color;
+      updateColorSelectors(containerId, color);
+    });
   });
+}
 
-  // Sliders & Toggles
-  gridSizeSlider.addEventListener('input', (e) => {
-    currentSettings.gridSize = parseInt(e.target.value);
-    gridSizeValue.textContent = currentSettings.gridSize;
-    debounceProcess();
-  });
+/**
+ * Setup export button handlers
+ */
+function setupExportButtons() {
+  // PDF Export
+  if (domElements.downloadPdfBtn) {
+    domElements.downloadPdfBtn.addEventListener('click', async () => {
+      const btn = domElements.downloadPdfBtn;
+      const originalHtml = btn.innerHTML;
+      btn.disabled = true;
+      btn.innerHTML = '<i data-lucide="loader" class="animate-spin"></i> Generating PDF...';
+      if (window.lucide) window.lucide.createIcons();
 
-  brightnessSlider.addEventListener('input', (e) => {
-    currentSettings.brightness = parseInt(e.target.value);
-    brightnessValue.textContent = currentSettings.brightness;
-    debounceProcess();
-  });
+      try {
+        await app.handleExport('pdf');
+      } catch (error) {
+        alert('Error generating PDF');
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = originalHtml;
+        if (window.lucide) window.lucide.createIcons();
+      }
+    });
+  }
 
-  dieColorInput.addEventListener('input', (e) => {
-    currentSettings.dieColor = e.target.value;
-    document.getElementById('dieColorPlaceholder').style.backgroundColor = e.target.value;
-    diceRenderer.generateTintedDice(currentSettings.dieColor, currentSettings.pointColor);
-    debounceProcess();
-  });
+  // 3D Print Modal
+  if (domElements.export3dPrintBtn) {
+    domElements.export3dPrintBtn.addEventListener('click', () => {
+      const settings = app.getSettings();
 
-  pointColorInput.addEventListener('input', (e) => {
-    currentSettings.pointColor = e.target.value;
-    document.getElementById('pointColorPlaceholder').style.backgroundColor = e.target.value;
-    diceRenderer.generateTintedDice(currentSettings.dieColor, currentSettings.pointColor);
-    debounceProcess();
-  });
+      // Sync modal UI with current settings
+      const sizeButtons = document.querySelectorAll('.size-btn');
+      sizeButtons.forEach(btn => {
+        const size = parseInt(btn.getAttribute('data-size'));
+        if (size === settings.diceSize) {
+          btn.classList.add('border-primary', 'bg-primary/20');
+          btn.classList.remove('border-white/10');
+        } else {
+          btn.classList.remove('border-primary', 'bg-primary/20');
+          btn.classList.add('border-white/10');
+        }
+      });
 
-  sourceGrayscaleToggle.addEventListener('change', (e) => {
-    currentSettings.sourceGrayscale = e.target.checked;
-    processAndRender();
-    saveSettings();
-  });
+      if (domElements.exportModal) {
+        domElements.exportModal.classList.remove('hidden');
+      }
+    });
+  }
 
-  // Modal Size Selectors
+  // Modal handlers
+  const closeModal = () => {
+    if (domElements.exportModal) {
+      domElements.exportModal.classList.add('hidden');
+    }
+  };
+
+  if (domElements.cancelExportBtn) {
+    domElements.cancelExportBtn.addEventListener('click', closeModal);
+  }
+
+  if (domElements.modalOverlay) {
+    domElements.modalOverlay.addEventListener('click', closeModal);
+  }
+
+  // Confirm 3MF export from modal
+  if (domElements.confirmExportBtn) {
+    domElements.confirmExportBtn.addEventListener('click', async () => {
+      const primeTower = document.getElementById('primeTower')?.checked || false;
+      const raft = document.getElementById('raft')?.checked || false;
+
+      const btn = domElements.confirmExportBtn;
+      const spinner = btn.querySelector('.loading-spinner');
+      btn.disabled = true;
+      if (spinner) spinner.classList.remove('hidden');
+
+      try {
+        await app.handleExport('3mf', { primeTower, raft });
+        closeModal();
+      } catch (error) {
+        alert('Error generating 3D Print 3MF');
+      } finally {
+        btn.disabled = false;
+        if (spinner) spinner.classList.add('hidden');
+      }
+    });
+  }
+
+  // Modal PDF button
+  if (domElements.modalDownloadPdfBtn) {
+    domElements.modalDownloadPdfBtn.addEventListener('click', async () => {
+      const btn = domElements.modalDownloadPdfBtn;
+      const originalHtml = btn.innerHTML;
+      btn.disabled = true;
+      btn.innerHTML = '<i data-lucide="loader" class="animate-spin"></i>';
+      if (window.lucide) window.lucide.createIcons();
+
+      try {
+        await app.handleExport('pdf');
+      } catch (error) {
+        alert('Error generating PDF');
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = originalHtml;
+        if (window.lucide) window.lucide.createIcons();
+      }
+    });
+  }
+
+  // OpenSCAD Export
+  if (domElements.downloadScadBtn) {
+    domElements.downloadScadBtn.addEventListener('click', async () => {
+      const btn = domElements.downloadScadBtn;
+      const originalHtml = btn.innerHTML;
+      btn.disabled = true;
+      btn.innerHTML = '<i data-lucide="loader" class="animate-spin"></i> Generating SCAD...';
+      if (window.lucide) window.lucide.createIcons();
+
+      try {
+        await app.handleExport('scad');
+      } catch (error) {
+        alert('Error generating OpenSCAD');
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = originalHtml;
+        if (window.lucide) window.lucide.createIcons();
+      }
+    });
+  }
+
+  // Multi-plate export
+  if (domElements.exportMultiPlateBtn) {
+    domElements.exportMultiPlateBtn.addEventListener('click', async () => {
+      const btn = domElements.exportMultiPlateBtn;
+      const originalHtml = btn.innerHTML;
+      btn.disabled = true;
+      btn.innerHTML = '<i data-lucide="loader" class="animate-spin"></i> Generating...';
+      if (window.lucide) window.lucide.createIcons();
+
+      try {
+        await app.handleExport('3mf', { multiPlate: true, raft: true });
+      } catch (error) {
+        alert('Error generating multi-plate 3MF');
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = originalHtml;
+        if (window.lucide) window.lucide.createIcons();
+      }
+    });
+  }
+
+  // Dice size buttons in modal
   const sizeButtons = document.querySelectorAll('.size-btn');
   sizeButtons.forEach(btn => {
     btn.addEventListener('click', () => {
       const size = parseInt(btn.getAttribute('data-size'));
-      currentSettings.diceSize = size;
-      document.getElementById('modalDiceSize').value = size;
+      app.updateSetting('diceSize', size);
 
       // Update UI
       sizeButtons.forEach(b => {
@@ -188,371 +379,52 @@ function setupEventListeners() {
       });
       btn.classList.add('border-primary', 'bg-primary/20');
       btn.classList.remove('border-white/10');
-
-      // Re-process for visual update if needed (though it mainly affects export)
-      debounceProcess();
     });
   });
-
-  // Color Selector Listeners
-  setupColorSelector('dieColorSelectors', 'dieColor');
-  setupColorSelector('pointColorSelectors', 'pointColor');
-
-  resetBtn.addEventListener('click', handleReset);
-
-  // Comparison Slider
-  comparisonSlider.addEventListener('input', (e) => {
-    const percent = e.target.value;
-    const diceWrapper = document.querySelector('.dice-wrapper');
-    diceWrapper.style.clipPath = `inset(0 ${100 - percent}% 0 0)`;
-    document.querySelector('.comparison-line').style.left = percent + '%';
-    document.querySelector('.comparison-handle').style.left = percent + '%';
-  });
 }
 
-// Handle file selection
+/**
+ * Handle file selection
+ */
 async function handleFileSelect(event) {
   const file = event.target.files[0];
-  if (validateFile(file)) {
-    await processUploadedImage(file);
+  if (file) {
+    try {
+      await app.processImage(file);
+    } catch (error) {
+      console.error('Error processing file:', error);
+    }
   }
 }
 
-function validateFile(file) {
-  if (!file) return false;
-  if (!SUPPORTED_FORMATS.includes(file.type)) {
-    alert('Formato no soportado. Por favor usa PNG, JPG o WEBP.');
-    return false;
-  }
-  return true;
-}
-
-// Drag and drop handlers
+/**
+ * Drag and drop handlers
+ */
 function handleDragOver(event) {
   event.preventDefault();
-  uploadArea.classList.add('border-primary/50', 'bg-white/[0.05]');
+  domElements.uploadArea.classList.add('border-primary/50', 'bg-white/[0.05]');
 }
 
 function handleDragLeave(event) {
   event.preventDefault();
-  uploadArea.classList.remove('border-primary/50', 'bg-white/[0.05]');
+  domElements.uploadArea.classList.remove('border-primary/50', 'bg-white/[0.05]');
 }
 
 async function handleDrop(event) {
   event.preventDefault();
-  uploadArea.classList.remove('border-primary/50', 'bg-white/[0.05]');
+  domElements.uploadArea.classList.remove('border-primary/50', 'bg-white/[0.05]');
   const file = event.dataTransfer.files[0];
-  if (validateFile(file)) {
-    await processUploadedImage(file);
-  }
-}
-
-// Process uploaded image
-async function processUploadedImage(file) {
-  try {
-    await imageProcessor.loadImage(file);
-    appHeader.classList.add('scale-75', 'opacity-50');
-    uploadSection.classList.add('hidden');
-    examplesSection.classList.add('hidden');
-    processingSection.classList.remove('hidden');
-    await processAndRender();
-  } catch (error) {
-    console.error('Error processing image:', error);
-    alert('Error al procesar la imagen.');
-  }
-}
-
-// Process image and render dice art
-async function processAndRender() {
-  loadingOverlay.classList.remove('hidden');
-  try {
-    const result = imageProcessor.processImage(
-      originalCanvas,
-      currentSettings.gridSize,
-      currentSettings.brightness,
-      currentSettings.contrast,
-      currentSettings.sourceGrayscale
-    );
-
-    lastResult = result; // Store for export
-
-    dimensionsInfo.textContent = `${result.gridWidth} columnas × ${result.gridHeight} filas`;
-    totalDiceInfo.textContent = result.totalDice.toLocaleString();
-
-    await diceRenderer.renderDiceGridAnimated(
-      diceCanvas,
-      result.diceLevels,
-      result.gridWidth,
-      result.gridHeight
-    );
-
-    updateDiceStats(result.diceLevels);
-  } catch (error) {
-    console.error('Error during processing:', error);
-  } finally {
-    loadingOverlay.classList.add('hidden');
-  }
-}
-
-// PDF Export Handler
-const downloadPdfBtn = document.getElementById('downloadPdfBtn');
-const exportMultiPlateBtn = document.getElementById('exportMultiPlateBtn');
-const export3dPrintBtn = document.getElementById('export3dPrintBtn');
-const downloadScadBtn = document.getElementById('downloadScadBtn');
-
-function setupColorSelector(containerId, settingKey) {
-  const buttons = document.querySelectorAll(`#${containerId} button`);
-  buttons.forEach((btn) => {
-    btn.addEventListener('click', () => {
-      const color = btn.getAttribute('data-color');
-      currentSettings[settingKey] = color;
-      document.getElementById(settingKey).value = color;
-
-      // Update UI highlighting
-      updateColorSelectors(containerId, color);
-
-      // Regenerate dice if needed
-      diceRenderer.generateTintedDice(currentSettings.dieColor, currentSettings.pointColor);
-      debounceProcess();
-    });
-  });
-}
-
-downloadPdfBtn.addEventListener('click', async () => {
-  if (!lastResult) return;
-
-  downloadPdfBtn.disabled = true;
-  const originalText = downloadPdfBtn.innerHTML;
-  downloadPdfBtn.innerHTML =
-    '<span class="material-symbols-outlined animate-spin text-lg">sync</span><span class="text-[10px] font-bold pr-1">PDF</span>';
-
-  try {
-    const stats = diceRenderer.getDiceStats(lastResult.diceLevels);
-    const metadata = {
-      gridWidth: lastResult.gridWidth,
-      gridHeight: lastResult.gridHeight,
-      totalDice: lastResult.totalDice,
-      stats: stats,
-      colors: {
-        dieColor: currentSettings.dieColor,
-        pointColor: currentSettings.pointColor,
-      },
-    };
-
-    const blob = await pdfExporter.exportProject(diceCanvas, originalCanvas, metadata);
-    exporter3mf.saveFile(blob, 'dice-art-project-instructions.pdf');
-  } catch (error) {
-    console.error('Error exporting PDF:', error);
-    alert('Error generating PDF. Please try again.');
-  } finally {
-    downloadPdfBtn.disabled = false;
-    downloadPdfBtn.innerHTML = originalText;
-  }
-});
-
-// Multi-Plate 3MF Export Handler (10x10 Modules)
-exportMultiPlateBtn.addEventListener('click', async () => {
-  if (!lastResult) return;
-
-  exportMultiPlateBtn.disabled = true;
-  const originalHtml = exportMultiPlateBtn.innerHTML;
-  exportMultiPlateBtn.innerHTML = '<i data-lucide="sync" class="w-4 h-4 animate-spin"></i><span class="text-[10px] font-bold pr-1">GROUPING...</span>';
-  lucide.createIcons();
-
-  try {
-    const blob = await exporter3mf.generateMultiPlate3MF(
-      lastResult.diceLevels,
-      lastResult.gridWidth,
-      lastResult.gridHeight,
-      currentSettings.diceSize
-    );
-    exporter3mf.saveFile(blob, `dice-art-multi-plate-grouped-${currentSettings.diceSize}mm.3mf`);
-  } catch (error) {
-    console.error('Error exporting Multi-Plate:', error);
-    alert('Error generating Grouped Multi-Plate export.');
-  } finally {
-    exportMultiPlateBtn.disabled = false;
-    exportMultiPlateBtn.innerHTML = originalHtml;
-    lucide.createIcons();
-  }
-});
-
-// New Single Plate 3D Print Export (Now opens modal)
-const exportModal = document.getElementById('exportModal');
-const modalOverlay = document.getElementById('modalOverlay');
-const cancelExportBtn = document.getElementById('cancelExportBtn');
-const confirmExportBtn = document.getElementById('confirmExportBtn');
-
-export3dPrintBtn.addEventListener('click', () => {
-  if (!lastResult) return;
-
-  // Sync modal UI with currentSettings before showing
-  const sizeButtons = document.querySelectorAll('.size-btn');
-  sizeButtons.forEach(btn => {
-    const size = parseInt(btn.getAttribute('data-size'));
-    if (size === currentSettings.diceSize) {
-      btn.classList.add('border-primary', 'bg-primary/20');
-      btn.classList.remove('border-white/10');
-    } else {
-      btn.classList.remove('border-primary', 'bg-primary/20');
-      btn.classList.add('border-white/10');
+  if (file) {
+    try {
+      await app.processImage(file);
+    } catch (error) {
+      console.error('Error processing file:', error);
     }
-  });
-
-  exportModal.classList.remove('hidden');
-});
-
-const closeModal = () => {
-  exportModal.classList.add('hidden');
-};
-
-cancelExportBtn.addEventListener('click', closeModal);
-modalOverlay.addEventListener('click', closeModal);
-
-confirmExportBtn.addEventListener('click', async () => {
-  if (!lastResult) return;
-
-  const options = {
-    primeTower: document.getElementById('modalPrimeTower').checked,
-    raft: document.getElementById('modalRaft').checked,
-    spacing: document.getElementById('modalSpacing').checked
-  };
-
-  // UI Feedback in Modal
-  confirmExportBtn.disabled = true;
-  const spinner = document.getElementById('exportSpinner');
-  spinner.classList.remove('hidden');
-
-  try {
-    const threeMfBlob = await exporter3mf.generateSinglePlate3MF(
-      lastResult.diceLevels,
-      lastResult.gridWidth,
-      lastResult.gridHeight,
-      currentSettings.diceSize,
-      options
-    );
-    exporter3mf.saveFile(threeMfBlob, `dice-art-print-${currentSettings.diceSize}mm.3mf`);
-  } catch (error) {
-    console.error('Error exporting 3D Print:', error);
-    alert('Error generating 3D Print 3MF.');
-  } finally {
-    confirmExportBtn.disabled = false;
-    spinner.classList.add('hidden');
   }
+}
+
+// Start the application
+init().catch(error => {
+  console.error('Failed to initialize application:', error);
+  alert('Application initialization failed. Please refresh the page.');
 });
-
-const modalDownloadPdfBtn = document.getElementById('modalDownloadPdfBtn');
-modalDownloadPdfBtn.addEventListener('click', async () => {
-  if (!lastResult) return;
-
-  modalDownloadPdfBtn.disabled = true;
-  const originalContent = modalDownloadPdfBtn.innerHTML;
-  modalDownloadPdfBtn.innerHTML = '<i data-lucide="sync" class="w-4 h-4 animate-spin"></i>';
-  lucide.createIcons();
-
-  try {
-    const stats = diceRenderer.getDiceStats(lastResult.diceLevels);
-    const metadata = {
-      gridWidth: lastResult.gridWidth,
-      gridHeight: lastResult.gridHeight,
-      totalDice: lastResult.totalDice,
-      stats: stats,
-      colors: { dieColor: currentSettings.dieColor, pointColor: currentSettings.pointColor }
-    };
-    const pdfBlob = await pdfExporter.exportProject(diceCanvas, originalCanvas, metadata);
-    exporter3mf.saveFile(pdfBlob, `dice-art-instructions-${currentSettings.diceSize}mm.pdf`);
-  } catch (error) {
-    console.error('Error exporting Modal PDF:', error);
-    alert('Error generating PDF.');
-  } finally {
-    modalDownloadPdfBtn.disabled = false;
-    modalDownloadPdfBtn.innerHTML = originalContent;
-    lucide.createIcons();
-  }
-});
-
-// OpenSCAD Export Handler
-downloadScadBtn.addEventListener('click', async () => {
-  if (!lastResult) return;
-
-  downloadScadBtn.disabled = true;
-  const originalHtml = downloadScadBtn.innerHTML;
-  downloadScadBtn.innerHTML =
-    '<i data-lucide="sync" class="w-4 h-4 animate-spin"></i><span class="text-[10px] font-bold pr-1">SCAD</span>';
-  lucide.createIcons();
-
-  try {
-    const scadContent = scadExporter.generateSCAD(
-      lastResult.diceLevels,
-      lastResult.gridWidth,
-      lastResult.gridHeight,
-      currentSettings.diceSize
-    );
-    scadExporter.saveFile(scadContent, `dice-art-${currentSettings.diceSize}mm.scad`);
-  } catch (error) {
-    console.error('Error exporting SCAD:', error);
-    alert('Error generating OpenSCAD script.');
-  } finally {
-    downloadScadBtn.disabled = false;
-    downloadScadBtn.innerHTML = originalHtml;
-    lucide.createIcons();
-  }
-});
-
-// Update dice statistics
-function updateDiceStats(diceLevels) {
-  const stats = diceRenderer.getDiceStats(diceLevels);
-  diceStatsList.innerHTML = '';
-
-  stats.byLevel.forEach((count, index) => {
-    const face = index + 1;
-    const item = document.createElement('div');
-    item.className =
-      'flex items-center gap-3 bg-white/5 border border-white/10 px-4 py-2 rounded-xl backdrop-blur-md';
-
-    // Calculate appropriate filter for dice icons
-    // Since original icons are black dice with white dots,
-    // and we want them to look like the tinted ones roughly
-    const filter = currentSettings.dieColor === '#ffffff' ? 'none' : 'invert(1) brightness(0.8)';
-
-    item.innerHTML = `
-            <img src="assets/dice/dice-${face}.png" class="w-5 h-5 rounded-sm opacity-90 shadow-sm" style="filter: ${filter}; background-color: ${currentSettings.dieColor}">
-            <span class="text-white font-mono text-[11px] font-bold">${count.toLocaleString()}</span>
-        `;
-    diceStatsList.appendChild(item);
-  });
-}
-
-// Handle reset
-function handleReset() {
-  currentSettings = {
-    gridSize: 50,
-    brightness: 0,
-    contrast: 0,
-    dieColor: '#000000',
-    pointColor: '#ffffff',
-    sourceGrayscale: true,
-    diceSize: 10,
-  };
-  applySettingsToUI();
-  diceRenderer.generateTintedDice(currentSettings.dieColor, currentSettings.pointColor);
-  processAndRender();
-  saveSettings();
-}
-
-// Debounced processing
-let processTimeout;
-function debounceProcess() {
-  clearTimeout(processTimeout);
-  processTimeout = setTimeout(() => {
-    processAndRender();
-    saveSettings();
-  }, 300);
-}
-
-// Initialize app when DOM is ready
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', init);
-} else {
-  init();
-}
