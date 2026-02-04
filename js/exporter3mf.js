@@ -6,7 +6,7 @@ export default class Exporter3MF {
   }
 
   async generateSinglePlate3MF(diceLevels, gridWidth, gridHeight, diceSize = 10) {
-    console.log(`Generating master-object 3MF (${diceSize}mm)...`);
+    console.log(`Generating robust 3MF (${diceSize}mm)...`);
     const zip = new JSZip();
 
     // 1. Fetch template assets
@@ -48,10 +48,14 @@ export default class Exporter3MF {
       1: 19, 2: 17, 3: 15, 4: 13, 5: 11, 6: 8
     };
 
-    // 2. Generate all components for the Master Object
-    let masterComponentsXML = "";
+    // 2. Build items and metadata
+    let buildItemsXML = "";
+    let plateInstancesXML = "";
+    let assembleXML = "";
+
     const scale = diceSize / 10;
-    const spacing = 0.1; // Minimal spacing for Bambu
+    const spacing = 0.1;
+    const objectInstanceCounters = { 8: 0, 11: 0, 13: 0, 15: 0, 17: 0, 19: 0 };
 
     for (let y = 0; y < gridHeight; y++) {
       for (let x = 0; x < gridWidth; x++) {
@@ -60,23 +64,32 @@ export default class Exporter3MF {
         if (face < 1 || face > 6) continue;
 
         const objId = dieObjectMapping[face];
+        const instId = objectInstanceCounters[objId];
+        objectInstanceCounters[objId]++;
 
-        // Position calculation relative to master origin
+        // Position calculation
         const posX = x * (diceSize + spacing);
         const posY = y * (diceSize + spacing);
-        const posZ = 0; // Relative to master
+        const posZ = 1;
 
         const transform = `${scale} 0 0 0 ${scale} 0 0 0 ${scale} ${posX} ${posY} ${posZ}`;
         const uuid = `00000000-0000-4000-8000-${index.toString(16).padStart(12, '0')}`;
 
-        masterComponentsXML += `<component objectid="${objId}" p:UUID="${uuid}" transform="${transform}"/>\n  `;
+        buildItemsXML += `<item objectid="${objId}" p:UUID="${uuid}" transform="${transform}" printable="1"/>\n  `;
+        assembleXML += `<assemble_item object_id="${objId}" instance_id="${instId}" transform="${transform}" offset="0 0 0" />\n   `;
+
+        plateInstancesXML += `
+    <model_instance>
+      <metadata key="object_id" value="${objId}"/>
+      <metadata key="instance_id" value="${instId}"/>
+      <metadata key="identify_id" value="${20000 + index}"/>
+    </model_instance>`;
       }
     }
 
     const modelXML = `<?xml version="1.0" encoding="UTF-8"?>
 <model unit="millimeter" xml:lang="en-US" xmlns="http://schemas.microsoft.com/3dmanufacturing/core/2015/02" xmlns:BambuStudio="http://schemas.bambulab.com/package/2021" xmlns:p="http://schemas.microsoft.com/3dmanufacturing/production/2015/06" requiredextensions="p">
  <resources>
-  <!-- Die Templates -->
   <object id="8" p:UUID="00000007-61cb-4c03-9d28-80fed5dfa1dc" type="model">
    <components>
     <component p:path="/3D/Objects/object_7.model" objectid="1" p:UUID="00070000-b206-40ff-9872-83e8017abed1" transform="1 0 0 0 1 0 0 0 1 0 0 0"/>
@@ -128,23 +141,14 @@ export default class Exporter3MF {
     <component p:path="/3D/Objects/object_8.model" objectid="10" p:UUID="000c0001-b206-40ff-9872-83e8017abed1" transform="1 0 0 0 1 0 0 0 1 0 0 0.8"/>
    </components>
   </object>
-  
-  <!-- Master Object: Contains the entire Mosaic -->
-  <object id="1000" p:UUID="00001000-0000-4000-8000-000000000001" type="model">
-   <components>
-    ${masterComponentsXML}
-   </components>
-  </object>
  </resources>
  <build p:UUID="2c7c17d8-22b5-4d84-8835-1976022ea369">
-  <item objectid="1000" p:UUID="00001000-0000-4000-8000-000000000002" transform="1 0 0 0 1 0 0 0 1 0 0 1" printable="1"/>
+  ${buildItemsXML}
  </build>
 </model>`;
 
     zip.file("3D/3dmodel.model", modelXML);
 
-    // 5. Construct Metadata/model_settings.config
-    // Since we now have only ONE master object, metadata is simpler.
     const modelSettingsXML = `<?xml version="1.0" encoding="UTF-8"?>
 <config>
   <object id="8">
@@ -192,11 +196,6 @@ export default class Exporter3MF {
     <part id="18" subtype="normal_part"><metadata key="name" value="Body"/><metadata key="extruder" value="2"/></part>
     <part id="10" subtype="normal_part"><metadata key="name" value="Pip"/><metadata key="extruder" value="1"/></part>
   </object>
-  
-  <object id="1000">
-    <metadata key="name" value="DICE_ART_MOSAIC"/>
-  </object>
-
   <plate>
     <metadata key="plater_id" value="1"/>
     <metadata key="plater_name" value="Dice-Art"/>
@@ -204,11 +203,11 @@ export default class Exporter3MF {
     <metadata key="thumbnail_no_light_file" value="Metadata/plate_no_light_1.png"/>
     <metadata key="top_file" value="Metadata/top_1.png"/>
     <metadata key="pick_file" value="Metadata/pick_1.png"/>
-    <model_instance>
-      <metadata key="object_id" value="1000"/>
-      <metadata key="instance_id" value="0"/>
-    </model_instance>
+    ${plateInstancesXML}
   </plate>
+  <assemble>
+   ${assembleXML}
+  </assemble>
 </config>`;
 
     zip.file("Metadata/model_settings.config", modelSettingsXML);
