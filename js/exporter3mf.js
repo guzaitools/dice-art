@@ -142,10 +142,14 @@ export default class Exporter3MF {
     // 5. Config injection (Prime Tower & Raft)
     let projectSettings = modelModels["Metadata/project_settings.config"] || "";
     if (projectSettings) {
-      // Toggle Prime Tower
-      projectSettings = projectSettings.replace(/"enable_prime_tower":\s*"[^"]*"/, `"enable_prime_tower": "${options.primeTower ? '1' : '0'}"`);
-      // Toggle Raft (2 layers as requested)
-      projectSettings = projectSettings.replace(/"raft_layers":\s*"[^"]*"/, `"raft_layers": "${options.raft ? '2' : '0'}"`);
+      console.log("Injecting 3MF metadata options:", options);
+
+      // Global replacement to catch all occurrences
+      projectSettings = projectSettings.replace(/"enable_prime_tower":\s*"[^"]*"/g, `"enable_prime_tower": "${options.primeTower ? '1' : '0'}"`);
+      projectSettings = projectSettings.replace(/"raft_layers":\s*"[^"]*"/g, `"raft_layers": "${options.raft ? '2' : '0'}"`);
+
+      console.log(`- Prime Tower: ${options.primeTower ? 'Enabled (1)' : 'Disabled (0)'}`);
+      console.log(`- Raft Layers: ${options.raft ? '2' : '0'}`);
     }
 
     const modelSettingsXML = `<?xml version="1.0" encoding="UTF-8"?>

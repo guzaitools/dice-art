@@ -471,8 +471,10 @@
             Cancel
           </button>
           <button id="confirmExportBtn"
-            class="flex-[1.5] py-4 bg-gradient-to-r from-primary to-magenta-vibe rounded-2xl text-[9px] uppercase tracking-widest font-black hover:shadow-[0_0_20px_rgba(140,37,244,0.3)] transition-all">
-            Generate 3MF
+            class="flex-[1.5] py-4 bg-gradient-to-r from-primary to-magenta-vibe rounded-2xl text-[9px] uppercase tracking-widest font-black hover:shadow-[0_0_20px_rgba(140,37,244,0.3)] transition-all flex items-center justify-center gap-2">
+            <span id="exportBtnText">Generate 3MF</span>
+            <div id="exportSpinner"
+              class="hidden w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
           </button>
         </div>
       </div>

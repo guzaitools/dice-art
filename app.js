@@ -390,12 +390,14 @@ confirmExportBtn.addEventListener('click', async () => {
     spacing: document.getElementById('modalSpacing').checked
   };
 
-  closeModal();
-  export3dPrintBtn.disabled = true;
-  const originalHtml = export3dPrintBtn.innerHTML;
-  export3dPrintBtn.innerHTML =
-    '<i data-lucide="sync" class="w-4 h-4 animate-spin"></i><span class="text-[10px] font-bold pr-1">PRINTING</span>';
-  lucide.createIcons();
+  // UI Feedback in Modal
+  confirmExportBtn.disabled = true;
+  cancelExportBtn.disabled = true;
+  const btnText = document.getElementById('exportBtnText');
+  const spinner = document.getElementById('exportSpinner');
+  const originalBtnText = btnText.textContent;
+  btnText.textContent = 'Processing...';
+  spinner.classList.remove('hidden');
 
   try {
     const blob = await exporter3mf.generateSinglePlate3MF(
@@ -410,9 +412,12 @@ confirmExportBtn.addEventListener('click', async () => {
     console.error('Error exporting 3D Print:', error);
     alert('Error generating 3D Print 3MF.');
   } finally {
-    export3dPrintBtn.disabled = false;
-    export3dPrintBtn.innerHTML = originalHtml;
-    lucide.createIcons();
+    // Reset and Close Modal
+    confirmExportBtn.disabled = false;
+    cancelExportBtn.disabled = false;
+    btnText.textContent = originalBtnText;
+    spinner.classList.add('hidden');
+    closeModal();
   }
 });
 
