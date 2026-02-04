@@ -67,19 +67,19 @@ export default class Exporter3MF {
         const instId = objectInstanceCounters[objId];
         objectInstanceCounters[objId]++;
 
-        // Position calculation: centering around 125,125 (midpoint of a 250x250 bed)
+        // Position calculation: centering around 125,125
         const offsetX = 125 - (gridWidth * (diceSize + spacing)) / 2;
         const offsetY = 125 - (gridHeight * (diceSize + spacing)) / 2;
 
         const posX = offsetX + x * (diceSize + spacing);
         const posY = offsetY + y * (diceSize + spacing);
-        const posZ = 0; // Bambu usually handles Z docking automatically, but 1 is safe
+        const posZ = 0;
 
         const transform = `${scale} 0 0 0 ${scale} 0 0 0 ${scale} ${posX} ${posY} ${posZ}`;
         const uuid = `00000000-0000-4000-8000-${index.toString(16).padStart(12, '0')}`;
 
         buildItemsXML += `<item objectid="${objId}" p:UUID="${uuid}" transform="${transform}" printable="1"/>\n  `;
-        assembleXML += `<assemble_item object_id="${objId}" instance_id="${instId}" transform="${transform}" offset="0 0 0" />\n   `;
+        // assembleXML += `<assemble_item object_id="${objId}" instance_id="${instId}" transform="${transform}" offset="0 0 0" />\n   `;
 
         plateInstancesXML += `
     <model_instance>
@@ -152,14 +152,13 @@ export default class Exporter3MF {
 
     zip.file("3D/3dmodel.model", modelXML);
 
-    // Help-function to generate part metadata with matrix
-    const getPart = (id, name, extruder, x = 0, y = 0, z = 0) => {
+    const getPart = (id, name, extruder, sfile, sid, x = 0, y = 0, z = 0) => {
       const matrix = `1 0 0 ${x} 0 1 0 ${y} 0 0 1 ${z} 0 0 0 1`;
       return `<part id="${id}" subtype="normal_part">
       <metadata key="name" value="${name}"/>
       <metadata key="matrix" value="${matrix}"/>
-      <metadata key="source_file" value="dice-art.3mf"/>
-      <metadata key="source_object_id" value="0"/>
+      <metadata key="source_file" value="${sfile}"/>
+      <metadata key="source_object_id" value="${sid}"/>
       <metadata key="source_volume_id" value="0"/>
       <metadata key="extruder" value="${extruder}"/>
     </part>`;
@@ -169,48 +168,48 @@ export default class Exporter3MF {
 <config>
   <object id="8">
     <metadata key="name" value="6"/><metadata key="extruder" value="1"/>
-    ${getPart(1, "Body", 2)}
-    ${getPart(2, "Pip", 1, 2.5, -2.5, 0.8)}
-    ${getPart(3, "Pip", 1, 0, -2.5, 0.8)}
-    ${getPart(4, "Pip", 1, -2.5, -2.5, 0.8)}
-    ${getPart(5, "Pip", 1, 2.5, 2.5, 0.8)}
-    ${getPart(6, "Pip", 1, 0, 2.5, 0.8)}
-    ${getPart(7, "Pip", 1, -2.5, 2.5, 0.8)}
+    ${getPart(1, "Body", 2, "object_7.model", 0)}
+    ${getPart(2, "Pip", 1, "object_7.model", 1, 2.5, -2.5, 0.8)}
+    ${getPart(3, "Pip", 1, "object_7.model", 2, 0, -2.5, 0.8)}
+    ${getPart(4, "Pip", 1, "object_7.model", 3, -2.5, -2.5, 0.8)}
+    ${getPart(5, "Pip", 1, "object_7.model", 4, 2.5, 2.5, 0.8)}
+    ${getPart(6, "Pip", 1, "object_7.model", 5, 0, 2.5, 0.8)}
+    ${getPart(7, "Pip", 1, "object_7.model", 6, -2.5, 2.5, 0.8)}
   </object>
   <object id="11">
     <metadata key="name" value="5"/><metadata key="extruder" value="1"/>
-    ${getPart(9, "Body", 2)}
-    ${getPart(2, "Pip", 1, 2.5, -2.5, 0.8)}
-    ${getPart(4, "Pip", 1, -2.5, -2.5, 0.8)}
-    ${getPart(10, "Pip", 1, 0, 0, 0.8)}
-    ${getPart(5, "Pip", 1, 2.5, 2.5, 0.8)}
-    ${getPart(7, "Pip", 1, -2.5, 2.5, 0.8)}
+    ${getPart(9, "Body", 2, "object_8.model", 0)}
+    ${getPart(2, "Pip", 1, "object_7.model", 1, 2.5, -2.5, 0.8)}
+    ${getPart(4, "Pip", 1, "object_7.model", 3, -2.5, -2.5, 0.8)}
+    ${getPart(10, "Pip", 1, "object_8.model", 1, 0, 0, 0.8)}
+    ${getPart(5, "Pip", 1, "object_7.model", 4, 2.5, 2.5, 0.8)}
+    ${getPart(7, "Pip", 1, "object_7.model", 6, -2.5, 2.5, 0.8)}
   </object>
   <object id="13">
     <metadata key="name" value="4"/><metadata key="extruder" value="1"/>
-    ${getPart(12, "Body", 2)}
-    ${getPart(2, "Pip", 1, 2.5, -2.5, 0.8)}
-    ${getPart(4, "Pip", 1, -2.5, -2.5, 0.8)}
-    ${getPart(5, "Pip", 1, 2.5, 2.5, 0.8)}
-    ${getPart(7, "Pip", 1, -2.5, 2.5, 0.8)}
+    ${getPart(12, "Body", 2, "object_9.model", 0)}
+    ${getPart(2, "Pip", 1, "object_7.model", 1, 2.5, -2.5, 0.8)}
+    ${getPart(4, "Pip", 1, "object_7.model", 3, -2.5, -2.5, 0.8)}
+    ${getPart(5, "Pip", 1, "object_7.model", 4, 2.5, 2.5, 0.8)}
+    ${getPart(7, "Pip", 1, "object_7.model", 6, -2.5, 2.5, 0.8)}
   </object>
   <object id="15">
     <metadata key="name" value="3"/><metadata key="extruder" value="1"/>
-    ${getPart(14, "Body", 2)}
-    ${getPart(2, "Pip", 1, 2.5, -2.5, 0.8)}
-    ${getPart(10, "Pip", 1, 0, 0, 0.8)}
-    ${getPart(7, "Pip", 1, -2.5, 2.5, 0.8)}
+    ${getPart(14, "Body", 2, "object_10.model", 0)}
+    ${getPart(2, "Pip", 1, "object_7.model", 1, 2.5, -2.5, 0.8)}
+    ${getPart(10, "Pip", 1, "object_8.model", 1, 0, 0, 0.8)}
+    ${getPart(7, "Pip", 1, "object_7.model", 6, -2.5, 2.5, 0.8)}
   </object>
   <object id="17">
     <metadata key="name" value="2"/><metadata key="extruder" value="1"/>
-    ${getPart(16, "Body", 2)}
-    ${getPart(2, "Pip", 1, 2.5, -2.5, 0.8)}
-    ${getPart(7, "Pip", 1, -2.5, 2.5, 0.8)}
+    ${getPart(16, "Body", 2, "object_11.model", 0)}
+    ${getPart(2, "Pip", 1, "object_7.model", 1, 2.5, -2.5, 0.8)}
+    ${getPart(7, "Pip", 1, "object_7.model", 6, -2.5, 2.5, 0.8)}
   </object>
   <object id="19">
     <metadata key="name" value="1"/><metadata key="extruder" value="1"/>
-    ${getPart(18, "Body", 2)}
-    ${getPart(10, "Pip", 1, 0, 0, 0.8)}
+    ${getPart(18, "Body", 2, "object_12.model", 0)}
+    ${getPart(10, "Pip", 1, "object_8.model", 1, 0, 0, 0.8)}
   </object>
   <plate>
     <metadata key="plater_id" value="1"/>
@@ -221,9 +220,6 @@ export default class Exporter3MF {
     <metadata key="pick_file" value="Metadata/pick_1.png"/>
     ${plateInstancesXML}
   </plate>
-  <assemble>
-   ${assembleXML}
-  </assemble>
 </config>`;
 
     zip.file("Metadata/model_settings.config", modelSettingsXML);
