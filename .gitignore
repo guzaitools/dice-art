@@ -1,0 +1,22 @@
+# Dependencies
+node_modules/
+.npm
+dist/
+build/
+
+# IDE / OS
+.DS_Store
+.vscode/
+.idea/
+
+# Backend
+__pycache__/
+*.py[cod]
+.env
+venv/
+.venv/
+
+# Project Management / Brain
+.gemini/
+brain/
+*.log

@@ -1,0 +1,24 @@
+{
+  "name": "Dice Art Generator",
+  "short_name": "Dice Art",
+  "description": "Transforma tus imágenes en impresionantes mosaicos de dados.",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#0f0f1e",
+  "theme_color": "#6366f1",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "assets/icons/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "assets/icons/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
