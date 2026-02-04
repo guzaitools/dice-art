@@ -1,30 +1,62 @@
 import JSZip from 'jszip';
+import { parseModelGeometries, mergeMesh, serializeGeometry } from './utils/geometryHelpers.js';
+import { TEMPLATE_PATHS, DEFAULT_SPACING } from './constants.js';
 
+/**
+ * 3MF File Exporter
+ * Generates 3MF files for 3D printing from dice art data.
+ * Handles mesh merging, geometry transformation, and metadata configuration.
+ */
 export default class Exporter3MF {
+  /**
+   * Creates a new 3MF exporter instance
+   */
   constructor() {
-    // Robust template path detection: try both Vite-style (/) and simple server style (public/)
     this.templatePath = '3mf-template/';
     this.basePath = '';
   }
 
+
+  /**
+   * Find and validate the template path
+   * Tries multiple possible locations for the 3MF template files
+   * @returns {Promise<string>} Valid template path
+   */
   async findTemplatePath() {
-    const pathsToTry = ['/3mf-template/', 'public/3mf-template/'];
-    for (const path of pathsToTry) {
+    for (const path of TEMPLATE_PATHS) {
       try {
         const res = await fetch(`${path}Metadata/project_settings.config`);
         if (res.ok) {
           this.templatePath = path;
           return path;
         }
-      } catch (e) { }
+      } catch (e) {
+        // Continue to next path
+      }
     }
     return this.templatePath;
   }
 
+  /**
+   * Generate a UUID for 3MF objects
+   * @returns {string} UUID string
+   */
   generateUUID() {
     return '00000000-0000-4000-8000-' + Math.floor(Math.random() * 0x1000000000000).toString(16).padStart(12, '0');
   }
 
+  /**
+   * Generate a single-plate 3MF file with merged dice meshes
+   * @param {Uint8Array} diceLevels - Array of dice face values (1-6)
+   * @param {number} gridWidth - Grid width in dice count
+   * @param {number} gridHeight - Grid height in dice count
+   * @param {number} diceSize - Dice size in mm (5, 10, or 15)
+   * @param {Object} options - Export options
+   * @param {boolean} options.primeTower - Enable prime tower
+   * @param {boolean} options.raft - Enable raft base
+   * @param {boolean} options.spacing - Add spacing between dice
+   * @returns {Promise<Blob>} 3MF file as blob
+   */
   async generateSinglePlate3MF(diceLevels, gridWidth, gridHeight, diceSize = 10, options = { primeTower: false, raft: true, spacing: true }) {
     console.time('3MF-Generation');
     console.log(`Generating advanced mesh-merged 3MF (${diceSize}mm)...`, options);
