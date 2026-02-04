@@ -5,23 +5,24 @@ export default class Exporter3MF {
     this.templatePath = '/3mf-template/';
   }
 
-  async generateSinglePlate3MF(diceLevels, gridWidth, gridHeight, diceSize = 10) {
+  async generateSinglePlate3MF(diceLevels, gridWidth, gridHeight, diceSize = 10, options = { primeTower: false, raft: true, spacing: true }) {
     console.time('3MF-Generation');
-    console.log(`Generating vanilla mesh-merged 3MF (${diceSize}mm)...`);
+    console.log(`Generating refined mesh-merged 3MF (${diceSize}mm)...`, options);
     const zip = new JSZip();
 
-    // 1. Fetch template geometries (but we'll build our own manifest)
-    const geometryFiles = [
+    // 1. Fetch template geometries and config
+    const templateFiles = [
       "3D/Objects/object_7.model",
       "3D/Objects/object_8.model",
       "3D/Objects/object_9.model",
       "3D/Objects/object_10.model",
       "3D/Objects/object_11.model",
       "3D/Objects/object_12.model",
+      "Metadata/project_settings.config"
     ];
 
     const modelModels = {};
-    const fetchPromises = geometryFiles.map(async (file) => {
+    const fetchPromises = templateFiles.map(async (file) => {
       try {
         const response = await fetch(`${this.templatePath}${file}`);
         if (response.ok) {
@@ -36,8 +37,6 @@ export default class Exporter3MF {
     // 2. Mesh Parser (Super Robust)
     const splitModelGeometries = (xml) => {
       const objects = {};
-      // Regex for <object id="X" ...> ... <mesh> ... </mesh> ... </object>
-      // We manually seek for speed
       const objBlocks = xml.split(/<object/);
       objBlocks.shift();
       for (const block of objBlocks) {
@@ -72,7 +71,7 @@ export default class Exporter3MF {
     };
 
     const s = diceSize / 10;
-    const step = diceSize + 0.1;
+    const step = diceSize + (options.spacing ? 0.4 : 0); // Spacing option
     const ox = 125 - (gridWidth * step) / 2;
     const oy_top = 125 + (gridHeight * step) / 2;
 
@@ -109,9 +108,17 @@ export default class Exporter3MF {
     // 4. Build Minimal 3MF (Self-contained)
     const serialize = (v, t) => {
       let xml = '<mesh><vertices>\n';
-      for (const p of v) xml += `<vertex x="${p.x.toFixed(2)}" y="${p.y.toFixed(2)}" z="${p.z.toFixed(2)}"/>\n`;
+      const lenV = v.length;
+      for (let i = 0; i < lenV; i++) {
+        const p = v[i];
+        xml += `<vertex x="${p.x.toFixed(2)}" y="${p.y.toFixed(2)}" z="${p.z.toFixed(2)}"/>\n`;
+      }
       xml += '</vertices><triangles>\n';
-      for (const f of t) xml += `<triangle v1="${f.v1}" v2="${f.v2}" v3="${f.v3}"/>\n`;
+      const lenT = t.length;
+      for (let i = 0; i < lenT; i++) {
+        const f = t[i];
+        xml += `<triangle v1="${f.v1}" v2="${f.v2}" v3="${f.v3}"/>\n`;
+      }
       xml += '</triangles></mesh>';
       return xml;
     };
@@ -132,7 +139,15 @@ export default class Exporter3MF {
  </build>
 </model>`;
 
-    // We still need the model_settings.config for Bambu extruders
+    // 5. Config injection (Prime Tower & Raft)
+    let projectSettings = modelModels["Metadata/project_settings.config"] || "";
+    if (projectSettings) {
+      // Toggle Prime Tower
+      projectSettings = projectSettings.replace(/"enable_prime_tower":\s*"[^"]*"/, `"enable_prime_tower": "${options.primeTower ? '1' : '0'}"`);
+      // Toggle Raft (2 layers as requested)
+      projectSettings = projectSettings.replace(/"raft_layers":\s*"[^"]*"/, `"raft_layers": "${options.raft ? '2' : '0'}"`);
+    }
+
     const modelSettingsXML = `<?xml version="1.0" encoding="UTF-8"?>
 <config>
   <object id="1"><metadata key="name" value="Bodies"/><metadata key="extruder" value="2"/></object>
@@ -155,12 +170,16 @@ export default class Exporter3MF {
 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
  <Relationship Target="/3D/3dmodel.model" Id="rel1" Type="http://schemas.microsoft.com/3dmanufacturing/2013/01/3dmodel"/>
  <Relationship Target="/Metadata/model_settings.config" Id="rel2" Type="http://schemas.bambulab.com/package/2021/config"/>
+ <Relationship Target="/Metadata/project_settings.config" Id="rel3" Type="http://schemas.bambulab.com/package/2021/config"/>
 </Relationships>`;
 
     zip.file("[Content_Types].xml", contentTypesXML);
     zip.file("_rels/.rels", relsXML);
     zip.file("3D/3dmodel.model", modelXML);
     zip.file("Metadata/model_settings.config", modelSettingsXML);
+    if (projectSettings) {
+      zip.file("Metadata/project_settings.config", projectSettings);
+    }
 
     const blob = await zip.generateAsync({ type: "blob", compression: "STORE" });
     console.timeEnd('3MF-Generation');

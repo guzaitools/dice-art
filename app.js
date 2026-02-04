@@ -363,10 +363,34 @@ download3mfBtn.addEventListener('click', async () => {
   }
 });
 
-// New Single Plate 3D Print Export
-export3dPrintBtn.addEventListener('click', async () => {
+// New Single Plate 3D Print Export (Now opens modal)
+const exportModal = document.getElementById('exportModal');
+const modalOverlay = document.getElementById('modalOverlay');
+const cancelExportBtn = document.getElementById('cancelExportBtn');
+const confirmExportBtn = document.getElementById('confirmExportBtn');
+
+export3dPrintBtn.addEventListener('click', () => {
+  if (!lastResult) return;
+  exportModal.classList.remove('hidden');
+});
+
+const closeModal = () => {
+  exportModal.classList.add('hidden');
+};
+
+cancelExportBtn.addEventListener('click', closeModal);
+modalOverlay.addEventListener('click', closeModal);
+
+confirmExportBtn.addEventListener('click', async () => {
   if (!lastResult) return;
 
+  const options = {
+    primeTower: document.getElementById('modalPrimeTower').checked,
+    raft: document.getElementById('modalRaft').checked,
+    spacing: document.getElementById('modalSpacing').checked
+  };
+
+  closeModal();
   export3dPrintBtn.disabled = true;
   const originalHtml = export3dPrintBtn.innerHTML;
   export3dPrintBtn.innerHTML =
@@ -378,7 +402,8 @@ export3dPrintBtn.addEventListener('click', async () => {
       lastResult.diceLevels,
       lastResult.gridWidth,
       lastResult.gridHeight,
-      currentSettings.diceSize
+      currentSettings.diceSize,
+      options
     );
     exporter3mf.saveFile(blob, `dice-art-print-${currentSettings.diceSize}mm.3mf`);
   } catch (error) {

@@ -305,7 +305,7 @@
                   <span class="text-[10px] font-bold pr-1 text-nowrap">3D PRINT</span>
                 </button>
                 <button id="downloadScadBtn" title="Download OpenSCAD Script"
-                  class="p-2 bg-white/5 border border-white/10 rounded-xl hover:bg-white/10 hover:border-white/20 transition-all text-white flex items-center gap-2 group">
+                  class="p-2 bg-white/5 border border-white/10 rounded-xl hover:bg-white/10 hover:border-white/20 transition-all text-white flex items-center gap-2 group hidden">
                   <span
                     class="material-symbols-outlined text-lg group-hover:text-magenta-vibe transition-colors">terminal</span>
                   <span class="text-[10px] font-bold pr-1">SCAD</span>
@@ -412,14 +412,65 @@
         </div>
       </div>
 
-      <div id="loadingOverlay"
-        class="absolute inset-0 bg-[#050208]/95 flex flex-col items-center justify-center hidden rounded-[3rem] z-[200] backdrop-blur-3xl">
-        <div class="w-16 h-16 border-2 border-primary border-t-transparent rounded-full animate-spin mb-6"></div>
-        <p class="text-[10px] tracking-[0.8em] text-cyan-vibe uppercase animate-pulse font-black">
-          Reconstructing Reality...
-        </p>
       </div>
     </section>
+
+    <!-- Export Modal -->
+    <div id="exportModal" class="fixed inset-0 z-[300] flex items-center justify-center p-6 hidden">
+      <div class="absolute inset-0 bg-black/80 backdrop-blur-md" id="modalOverlay"></div>
+      <div class="glass-panel w-full max-w-md p-10 relative animate-in fade-in zoom-in duration-300">
+        <h2 class="text-2xl font-light mb-8 flex items-center gap-3">
+          <span class="material-symbols-outlined text-primary">settings</span>
+          Export Options
+        </h2>
+
+        <div class="space-y-6 mb-10">
+          <div class="flex justify-between items-center">
+            <div class="flex flex-col">
+              <span class="text-xs font-bold uppercase tracking-widest text-white">Prime Tower</span>
+              <span class="text-[10px] text-gray-400">Recommended for multi-color prints</span>
+            </div>
+            <label class="switch">
+              <input type="checkbox" id="modalPrimeTower" />
+              <span class="slider-toggle"></span>
+            </label>
+          </div>
+
+          <div class="flex justify-between items-center">
+            <div class="flex flex-col">
+              <span class="text-xs font-bold uppercase tracking-widest text-white">Raft</span>
+              <span class="text-[10px] text-gray-400">Improves bed adhesion (2 layers)</span>
+            </div>
+            <label class="switch">
+              <input type="checkbox" id="modalRaft" checked />
+              <span class="slider-toggle"></span>
+            </label>
+          </div>
+
+          <div class="flex justify-between items-center">
+            <div class="flex flex-col">
+              <span class="text-xs font-bold uppercase tracking-widest text-white">Dice Spacing</span>
+              <span class="text-[10px] text-gray-400">Adds 0.4mm gap between dice</span>
+            </div>
+            <label class="switch">
+              <input type="checkbox" id="modalSpacing" checked />
+              <span class="slider-toggle"></span>
+            </label>
+          </div>
+        </div>
+
+        <div class="flex gap-4">
+          <button id="cancelExportBtn"
+            class="flex-1 py-4 bg-white/5 border border-white/10 rounded-2xl text-[9px] uppercase tracking-widest font-black hover:bg-white/10 transition-all">
+            Cancel
+          </button>
+          <button id="confirmExportBtn"
+            class="flex-[1.5] py-4 bg-gradient-to-r from-primary to-magenta-vibe rounded-2xl text-[9px] uppercase tracking-widest font-black hover:shadow-[0_0_20px_rgba(140,37,244,0.3)] transition-all">
+            Generate 3MF
+          </button>
+        </div>
+      </div>
+    </div>
 
     <section id="examplesSection" class="w-full mt-24">
       <h3 class="text-xs font-black uppercase tracking-[0.8em] text-magenta-vibe mb-10 text-center md:text-left px-6">
