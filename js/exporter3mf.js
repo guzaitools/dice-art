@@ -7,7 +7,7 @@ export default class Exporter3MF {
 
   async generateSinglePlate3MF(diceLevels, gridWidth, gridHeight, diceSize = 10, options = { primeTower: false, raft: true, spacing: true }) {
     console.time('3MF-Generation');
-    console.log(`Generating refined mesh-merged 3MF (${diceSize}mm)...`, options);
+    console.log(`Generating advanced mesh-merged 3MF (${diceSize}mm)...`, options);
     const zip = new JSZip();
 
     // 1. Fetch template geometries and config
@@ -71,7 +71,7 @@ export default class Exporter3MF {
     };
 
     const s = diceSize / 10;
-    const step = diceSize + (options.spacing ? 0.4 : 0); // Spacing option
+    const step = diceSize + (options.spacing ? 0.4 : 0);
     const ox = 125 - (gridWidth * step) / 2;
     const oy_top = 125 + (gridHeight * step) / 2;
 
@@ -93,7 +93,8 @@ export default class Exporter3MF {
         }
         addMesh(bodyV, bodyT, bm, px, py, 0, s);
 
-        const addP = (g, o, dx, dy) => addMesh(pipV, pipT, geometries[g][o], px + dx * s, py + dy * s, 0.8 * s, s);
+        const pz = 0.8 * s;
+        const addP = (g, o, dx, dy) => addMesh(pipV, pipT, geometries[g][o], px + dx * s, py + dy * s, pz, s);
         switch (face) {
           case 6: addP(7, "2", 2.5, -2.5); addP(7, "3", 0, -2.5); addP(7, "4", -2.5, -2.5); addP(7, "5", 2.5, 2.5); addP(7, "6", 0, 2.5); addP(7, "7", -2.5, 2.5); break;
           case 5: addP(7, "2", 2.5, -2.5); addP(7, "4", -2.5, -2.5); addP(8, "10", 0, 0); addP(7, "5", 2.5, 2.5); addP(7, "7", -2.5, 2.5); break;
@@ -105,13 +106,13 @@ export default class Exporter3MF {
       }
     }
 
-    // 4. Build Minimal 3MF (Self-contained)
+    // 4. Build 3MF (Multi-part Components)
     const serialize = (v, t) => {
       let xml = '<mesh><vertices>\n';
       const lenV = v.length;
       for (let i = 0; i < lenV; i++) {
         const p = v[i];
-        xml += `<vertex x="${p.x.toFixed(2)}" y="${p.y.toFixed(2)}" z="${p.z.toFixed(2)}"/>\n`;
+        xml += `<vertex x="${p.x.toFixed(4)}" y="${p.y.toFixed(4)}" z="${p.z.toFixed(4)}"/>\n`;
       }
       xml += '</vertices><triangles>\n';
       const lenT = t.length;
@@ -124,42 +125,66 @@ export default class Exporter3MF {
     };
 
     const modelXML = `<?xml version="1.0" encoding="UTF-8"?>
-<model unit="millimeter" xml:lang="en-US" xmlns="http://schemas.microsoft.com/3dmanufacturing/core/2015/02">
+<model unit="millimeter" xml:lang="en-US" xmlns="http://schemas.microsoft.com/3dmanufacturing/core/2015/02" xmlns:BambuStudio="http://schemas.bambulab.com/package/2021">
+ <metadata name="BambuStudio:3mfVersion">1</metadata>
  <resources>
-  <object id="1" type="model">
+  <object id="1" type="model" name="Bodies">
     ${serialize(bodyV, bodyT)}
   </object>
-  <object id="2" type="model">
+  <object id="2" type="model" name="Pips">
     ${serialize(pipV, pipT)}
+  </object>
+  <object id="3" type="model" name="DiceArt">
+   <components>
+    <component objectid="1" transform="1 0 0 0 1 0 0 0 1 0 0 0"/>
+    <component objectid="2" transform="1 0 0 0 1 0 0 0 1 0 0 0"/>
+   </components>
   </object>
  </resources>
  <build>
-  <item objectid="1"/>
-  <item objectid="2"/>
+  <item objectid="3"/>
  </build>
 </model>`;
 
-    // 5. Config injection (Prime Tower & Raft)
+    // 5. Config injection (Mental Model Fix: different_settings_to_system)
     let projectSettings = modelModels["Metadata/project_settings.config"] || "";
     if (projectSettings) {
-      console.log("Injecting 3MF metadata options:", options);
+      console.log("Fixing 3MF metadata injection with deviations list...");
 
-      // Global replacement to catch all occurrences
+      // Update values
       projectSettings = projectSettings.replace(/"enable_prime_tower":\s*"[^"]*"/g, `"enable_prime_tower": "${options.primeTower ? '1' : '0'}"`);
       projectSettings = projectSettings.replace(/"raft_layers":\s*"[^"]*"/g, `"raft_layers": "${options.raft ? '2' : '0'}"`);
 
-      console.log(`- Prime Tower: ${options.primeTower ? 'Enabled (1)' : 'Disabled (0)'}`);
+      // Update deviations list to ensure slicer honors our values
+      const diffRegex = /"different_settings_to_system":\s*\[\s*"([^"]*)"/;
+      const match = projectSettings.match(diffRegex);
+      if (match) {
+        let keys = match[1].split(';').filter(x => x);
+        if (!keys.includes("enable_prime_tower")) keys.push("enable_prime_tower");
+        if (!keys.includes("raft_layers")) keys.push("raft_layers");
+        projectSettings = projectSettings.replace(diffRegex, `"different_settings_to_system": [\n        "${keys.join(';')}"`);
+      }
+
+      console.log(`- Prime Tower: ${options.primeTower ? 'ON' : 'OFF'}`);
       console.log(`- Raft Layers: ${options.raft ? '2' : '0'}`);
     }
 
     const modelSettingsXML = `<?xml version="1.0" encoding="UTF-8"?>
 <config>
-  <object id="1"><metadata key="name" value="Bodies"/><metadata key="extruder" value="2"/></object>
-  <object id="2"><metadata key="name" value="Pips"/><metadata key="extruder" value="1"/></object>
+  <object id="3">
+    <metadata key="name" value="DiceArt"/>
+    <part id="1" subtype="normal_part">
+      <metadata key="name" value="Bodies"/>
+      <metadata key="extruder" value="2"/>
+    </part>
+    <part id="2" subtype="normal_part">
+      <metadata key="name" value="Pips"/>
+      <metadata key="extruder" value="1"/>
+    </part>
+  </object>
   <plate>
     <metadata key="plater_id" value="1"/>
-    <model_instance><metadata key="object_id" value="1"/><metadata key="instance_id" value="0"/></model_instance>
-    <model_instance><metadata key="object_id" value="2"/><metadata key="instance_id" value="0"/></model_instance>
+    <model_instance><metadata key="object_id" value="3"/><metadata key="instance_id" value="0"/></model_instance>
   </plate>
 </config>`;
 
