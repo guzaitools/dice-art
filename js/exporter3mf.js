@@ -6,7 +6,7 @@ export default class Exporter3MF {
   }
 
   async generateSinglePlate3MF(diceLevels, gridWidth, gridHeight, diceSize = 10) {
-    console.log(`Generating unique-object 3MF for maximum compatibility (${diceSize}mm)...`);
+    console.log(`Generating optimized face-grouped 3MF (${diceSize}mm)...`);
     const zip = new JSZip();
 
     // 1. Fetch template assets
@@ -44,8 +44,8 @@ export default class Exporter3MF {
     });
     await Promise.all(fetchPromises);
 
-    // 2. Define component helpers
-    const getComponentsForFace = (face, objIdBase) => {
+    // 2. Define component helpers for exactly 6 master objects
+    const getComponentsForFace = (face) => {
       const p7 = "/3D/Objects/object_7.model";
       const p8 = "/3D/Objects/object_8.model";
       const p9 = "/3D/Objects/object_9.model";
@@ -59,43 +59,43 @@ export default class Exporter3MF {
       switch (face) {
         case 6:
           return `
-    <component p:path="${p7}" objectid="1" p:UUID="${objIdBase}0001" transform="${commonTransform} 0 0 0"/>
-    <component p:path="${p7}" objectid="2" p:UUID="${objIdBase}0002" transform="${pipTransform(2.5, -2.5, 0.8)}"/>
-    <component p:path="${p7}" objectid="3" p:UUID="${objIdBase}0003" transform="${pipTransform(0, -2.5, 0.8)}"/>
-    <component p:path="${p7}" objectid="4" p:UUID="${objIdBase}0004" transform="${pipTransform(-2.5, -2.5, 0.8)}"/>
-    <component p:path="${p7}" objectid="5" p:UUID="${objIdBase}0005" transform="${pipTransform(2.5, 2.5, 0.8)}"/>
-    <component p:path="${p7}" objectid="6" p:UUID="${objIdBase}0006" transform="${pipTransform(0, 2.5, 0.8)}"/>
-    <component p:path="${p7}" objectid="7" p:UUID="${objIdBase}0007" transform="${pipTransform(-2.5, 2.5, 0.8)}"/>`;
+    <component p:path="${p7}" objectid="1" p:UUID="00060000-0000-4000-8000-000000000001" transform="${commonTransform} 0 0 0"/>
+    <component p:path="${p7}" objectid="2" p:UUID="00060000-0000-4000-8000-000000000002" transform="${pipTransform(2.5, -2.5, 0.8)}"/>
+    <component p:path="${p7}" objectid="3" p:UUID="00060000-0000-4000-8000-000000000003" transform="${pipTransform(0, -2.5, 0.8)}"/>
+    <component p:path="${p7}" objectid="4" p:UUID="00060000-0000-4000-8000-000000000004" transform="${pipTransform(-2.5, -2.5, 0.8)}"/>
+    <component p:path="${p7}" objectid="5" p:UUID="00060000-0000-4000-8000-000000000005" transform="${pipTransform(2.5, 2.5, 0.8)}"/>
+    <component p:path="${p7}" objectid="6" p:UUID="00060000-0000-4000-8000-000000000006" transform="${pipTransform(0, 2.5, 0.8)}"/>
+    <component p:path="${p7}" objectid="7" p:UUID="00060000-0000-4000-8000-000000000007" transform="${pipTransform(-2.5, 2.5, 0.8)}"/>`;
         case 5:
           return `
-    <component p:path="${p8}" objectid="9" p:UUID="${objIdBase}0009" transform="${commonTransform} 0 0 0"/>
-    <component p:path="${p7}" objectid="2" p:UUID="${objIdBase}0002" transform="${pipTransform(2.5, -2.5, 0.8)}"/>
-    <component p:path="${p7}" objectid="4" p:UUID="${objIdBase}0004" transform="${pipTransform(-2.5, -2.5, 0.8)}"/>
-    <component p:path="${p8}" objectid="10" p:UUID="${objIdBase}0010" transform="${pipTransform(0, 0, 0.8)}"/>
-    <component p:path="${p7}" objectid="5" p:UUID="${objIdBase}0005" transform="${pipTransform(2.5, 2.5, 0.8)}"/>
-    <component p:path="${p7}" objectid="7" p:UUID="${objIdBase}0007" transform="${pipTransform(-2.5, 2.5, 0.8)}"/>`;
+    <component p:path="${p8}" objectid="9" p:UUID="00050000-0000-4000-8000-000000000001" transform="${commonTransform} 0 0 0"/>
+    <component p:path="${p7}" objectid="2" p:UUID="00050000-0000-4000-8000-000000000002" transform="${pipTransform(2.5, -2.5, 0.8)}"/>
+    <component p:path="${p7}" objectid="4" p:UUID="00050000-0000-4000-8000-000000000003" transform="${pipTransform(-2.5, -2.5, 0.8)}"/>
+    <component p:path="${p8}" objectid="10" p:UUID="00050000-0000-4000-8000-000000000004" transform="${pipTransform(0, 0, 0.8)}"/>
+    <component p:path="${p7}" objectid="5" p:UUID="00050000-0000-4000-8000-000000000005" transform="${pipTransform(2.5, 2.5, 0.8)}"/>
+    <component p:path="${p7}" objectid="7" p:UUID="00050000-0000-4000-8000-000000000006" transform="${pipTransform(-2.5, 2.5, 0.8)}"/>`;
         case 4:
           return `
-    <component p:path="${p9}" objectid="12" p:UUID="${objIdBase}0012" transform="${commonTransform} 0 0 0"/>
-    <component p:path="${p7}" objectid="2" p:UUID="${objIdBase}0002" transform="${pipTransform(2.5, -2.5, 0.8)}"/>
-    <component p:path="${p7}" objectid="4" p:UUID="${objIdBase}0004" transform="${pipTransform(-2.5, -2.5, 0.8)}"/>
-    <component p:path="${p7}" objectid="5" p:UUID="${objIdBase}0005" transform="${pipTransform(2.5, 2.5, 0.8)}"/>
-    <component p:path="${p7}" objectid="7" p:UUID="${objIdBase}0007" transform="${pipTransform(-2.5, 2.5, 0.8)}"/>`;
+    <component p:path="${p9}" objectid="12" p:UUID="00040000-0000-4000-8000-000000000001" transform="${commonTransform} 0 0 0"/>
+    <component p:path="${p7}" objectid="2" p:UUID="00040000-0000-4000-8000-000000000002" transform="${pipTransform(2.5, -2.5, 0.8)}"/>
+    <component p:path="${p7}" objectid="4" p:UUID="00040000-0000-4000-8000-000000000003" transform="${pipTransform(-2.5, -2.5, 0.8)}"/>
+    <component p:path="${p7}" objectid="5" p:UUID="00040000-0000-4000-8000-000000000004" transform="${pipTransform(2.5, 2.5, 0.8)}"/>
+    <component p:path="${p7}" objectid="7" p:UUID="00040000-0000-4000-8000-000000000005" transform="${pipTransform(-2.5, 2.5, 0.8)}"/>`;
         case 3:
           return `
-    <component p:path="${p10}" objectid="14" p:UUID="${objIdBase}0014" transform="${commonTransform} 0 0 0"/>
-    <component p:path="${p7}" objectid="2" p:UUID="${objIdBase}0002" transform="${pipTransform(2.5, -2.5, 0.8)}"/>
-    <component p:path="${p8}" objectid="10" p:UUID="${objIdBase}0010" transform="${pipTransform(0, 0, 0.8)}"/>
-    <component p:path="${p7}" objectid="7" p:UUID="${objIdBase}0007" transform="${pipTransform(-2.5, 2.5, 0.8)}"/>`;
+    <component p:path="${p10}" objectid="14" p:UUID="00030000-0000-4000-8000-000000000001" transform="${commonTransform} 0 0 0"/>
+    <component p:path="${p7}" objectid="2" p:UUID="00030000-0000-4000-8000-000000000002" transform="${pipTransform(2.5, -2.5, 0.8)}"/>
+    <component p:path="${p8}" objectid="10" p:UUID="00030000-0000-4000-8000-000000000003" transform="${pipTransform(0, 0, 0.8)}"/>
+    <component p:path="${p7}" objectid="7" p:UUID="00030000-0000-4000-8000-000000000004" transform="${pipTransform(-2.5, 2.5, 0.8)}"/>`;
         case 2:
           return `
-    <component p:path="${p11}" objectid="16" p:UUID="${objIdBase}0016" transform="${commonTransform} 0 0 0"/>
-    <component p:path="${p7}" objectid="2" p:UUID="${objIdBase}0002" transform="${pipTransform(2.5, -2.5, 0.8)}"/>
-    <component p:path="${p7}" objectid="7" p:UUID="${objIdBase}0007" transform="${pipTransform(-2.5, 2.5, 0.8)}"/>`;
+    <component p:path="${p11}" objectid="16" p:UUID="00020000-0000-4000-8000-000000000001" transform="${commonTransform} 0 0 0"/>
+    <component p:path="${p7}" objectid="2" p:UUID="00020000-0000-4000-8000-000000000002" transform="${pipTransform(2.5, -2.5, 0.8)}"/>
+    <component p:path="${p7}" objectid="7" p:UUID="00020000-0000-4000-8000-000000000003" transform="${pipTransform(-2.5, 2.5, 0.8)}"/>`;
         case 1:
           return `
-    <component p:path="${p12}" objectid="18" p:UUID="${objIdBase}0018" transform="${commonTransform} 0 0 0"/>
-    <component p:path="${p8}" objectid="10" p:UUID="${objIdBase}0010" transform="${pipTransform(0, 0, 0.8)}"/>`;
+    <component p:path="${p12}" objectid="18" p:UUID="00010000-0000-4000-8000-000000000001" transform="${commonTransform} 0 0 0"/>
+    <component p:path="${p8}" objectid="10" p:UUID="00010000-0000-4000-8000-000000000002" transform="${pipTransform(0, 0, 0.8)}"/>`;
         default: return "";
       }
     };
@@ -170,11 +170,20 @@ export default class Exporter3MF {
       }
     };
 
-    // 3. Main Loop: One object per die
+    // 3. Define the 6 master objects
     let resourcesXML = "";
+    for (let face = 1; face <= 6; face++) {
+      resourcesXML += `
+  <object id="${face}" p:UUID="00000000-0000-4000-8000-00000000000${face}" type="model">
+   <components>${getComponentsForFace(face)}
+   </components>
+  </object>`;
+    }
+
+    // 4. Grid Loop: Use items referencing the 6 master objects
     let buildItemsXML = "";
     let plateInstancesXML = "";
-    let modelSettingsObjectsXML = "";
+    const faceInstanceCounters = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0 };
 
     const scale = diceSize / 10;
     const spacing = 0.1;
@@ -187,38 +196,31 @@ export default class Exporter3MF {
         const face = diceLevels[index];
         if (face < 1 || face > 6) continue;
 
-        const objId = 100 + index; // Start IDs from 100
-        const objIdBase = index.toString(16).padStart(8, '0');
-        const objUUID = `00000000-0000-4000-8000-${objIdBase}0000`;
+        const instId = faceInstanceCounters[face];
+        faceInstanceCounters[face]++;
 
-        // Resource Entry
-        resourcesXML += `
-  <object id="${objId}" p:UUID="${objUUID}" type="model">
-   <components>${getComponentsForFace(face, objIdBase)}
-   </components>
-  </object>`;
-
-        // Build Entry
         const posX = offsetX + x * (diceSize + spacing);
         const posY = offsetY + y * (diceSize + spacing);
-        // Note: PosX, PosY are in the bed coordinate system. PosZ is typically 0.
         const transform = `${scale} 0 0 0 ${scale} 0 0 0 ${scale} ${posX} ${posY} 0`;
-        const itemUUID = `00000000-0000-4000-9000-${objIdBase}0000`;
-        buildItemsXML += `<item objectid="${objId}" p:UUID="${itemUUID}" transform="${transform}" printable="1"/>\n  `;
+        const itemUUID = `00000000-0000-4000-9000-${index.toString(16).padStart(12, '0')}`;
 
-        // Plate Instance Entry
+        buildItemsXML += `<item objectid="${face}" p:UUID="${itemUUID}" transform="${transform}" printable="1"/>\n  `;
+
         plateInstancesXML += `
     <model_instance>
-      <metadata key="object_id" value="${objId}"/>
-      <metadata key="instance_id" value="0"/>
+      <metadata key="object_id" value="${face}"/>
+      <metadata key="instance_id" value="${instId}"/>
       <metadata key="identify_id" value="${1000 + index}"/>
     </model_instance>`;
-
-        // Model Settings Object Entry
-        modelSettingsObjectsXML += `
-  <object id="${objId}">${getPartMeta(face)}
-  </object>`;
       }
+    }
+
+    // 5. Model Settings Objects: Just 6 entries
+    let modelSettingsObjectsXML = "";
+    for (let face = 1; face <= 6; face++) {
+      modelSettingsObjectsXML += `
+  <object id="${face}">${getPartMeta(face)}
+  </object>`;
     }
 
     const modelXML = `<?xml version="1.0" encoding="UTF-8"?>
@@ -249,7 +251,7 @@ export default class Exporter3MF {
     const content = await zip.generateAsync({
       type: "blob",
       compression: "DEFLATE",
-      compressionOptions: { level: 6 } // Balanced compression
+      compressionOptions: { level: 9 }
     });
     return content;
   }
