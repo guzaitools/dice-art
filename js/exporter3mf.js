@@ -10,7 +10,7 @@ export default class Exporter3MF {
 
         const zip = new JSZip();
 
-        // 1. Fetch template assets from public directory
+        // 1. Fetch template assets
         const templateFiles = [
             "[Content_Types].xml",
             "_rels/.rels",
@@ -46,56 +46,17 @@ export default class Exporter3MF {
         await Promise.all(fetchPromises);
 
         // 2. Logic: Group dice by face (1-6)
+        // CRITICAL FIX: ImageProcessor.js returns values 1 to 6.
         const counts = new Array(7).fill(0);
         diceLevels.forEach(lvl => {
-            const faceValue = lvl + 1; // 0-indexed lvl to 1-6 face
-            counts[faceValue]++;
+            if (lvl >= 1 && lvl <= 6) {
+                counts[lvl]++;
+            }
         });
 
-        // Mapping from face value to Object ID in 3dmodel.model
         const dieObjectMapping = {
-            1: 19,
-            2: 17,
-            3: 15,
-            4: 13,
-            5: 11,
-            6: 8
+            1: 19, 2: 17, 3: 15, 4: 13, 5: 11, 6: 8
         };
-
-        const plates = [];
-        for (let face = 1; face <= 6; face++) {
-            const total = counts[face];
-            if (total === 0) continue;
-
-            const fullSets = Math.floor(total / 100);
-            const remainder = total % 100;
-
-            // Add full set plates
-            for (let s = 0; s < fullSets; s++) {
-                plates.push({
-                    face,
-                    count: 100,
-                    name: `Dice #${face} - Set ${s + 1} (Print 1)`, // Simplified name logic for the plate
-                    objectId: dieObjectMapping[face],
-                    displayTitle: `Dice #${face} - ${fullSets} Prints` // The user requested a specific naming for the group
-                });
-            }
-
-            // Add remainder plate
-            if (remainder > 0) {
-                plates.push({
-                    face,
-                    count: remainder,
-                    name: `Dice #${face} - Remainder (${remainder})`,
-                    objectId: dieObjectMapping[face]
-                });
-            }
-        }
-
-        // Wait, the user wants "Dice #1 - 3 Prints" to indicate he has to print that plate 3 times.
-        // But 3MF plates are usually unique. Let's optimize:
-        // We'll generate one plate of 100 for each face that has >= 100, and a remainder plate.
-        // Actually, if we want the user to "print 3 times", we can just name a single plate of 100 accordingly.
 
         const optimizedPlates = [];
         for (let face = 1; face <= 6; face++) {
@@ -127,8 +88,6 @@ export default class Exporter3MF {
         let buildItemsXML = "";
         let platesXML = "";
         let assembleXML = "";
-
-        // Track the instance ID for each object globally across the whole model
         const objectInstanceCounters = { 8: 0, 11: 0, 13: 0, 15: 0, 17: 0, 19: 0 };
 
         optimizedPlates.forEach((plate, pIdx) => {
@@ -146,27 +105,18 @@ export default class Exporter3MF {
 
                 const col = i % cols;
                 const row = Math.floor(i / cols);
-
-                // Position calculation (starting at 50,50 on the plate)
                 const x = 50 + col * (size + spacing);
                 const y = 50 + row * (size + spacing);
-                const z = 1;
-
-                const transform = `1 0 0 0 1 0 0 0 1 ${x} ${y} ${z}`;
+                const transform = `1 0 0 0 1 0 0 0 1 ${x} ${y} 1`;
                 const uuid = `00000000-0000-4000-8000-${platerId.toString(16).padStart(4, '0')}${i.toString(16).padStart(8, '0')}`;
 
-                // Add to 3D/3dmodel.model <build>
                 buildItemsXML += `<item objectid="${objId}" p:UUID="${uuid}" transform="${transform}" printable="1"/>\n  `;
-
-                // Add to Metadata/model_settings.config <assemble>
                 assembleXML += `<assemble_item object_id="${objId}" instance_id="${instId}" transform="${transform}" offset="0 0 0" />\n   `;
-
-                // Add to Metadata/model_settings.config <plate>
                 plateInstancesXML += `
     <model_instance>
       <metadata key="object_id" value="${objId}"/>
       <metadata key="instance_id" value="${instId}"/>
-      <metadata key="identify_id" value="${1000 + platerId * 100 + i}"/>
+      <metadata key="identify_id" value="${10000 + platerId * 1000 + i}"/>
     </model_instance>`;
             }
 
@@ -181,7 +131,7 @@ export default class Exporter3MF {
   </plate>\n`;
         });
 
-        // 4. Construct 3D/3dmodel.model
+        // 4. Detailed Object Resources for 3dmodel.model
         const masterModel = `<?xml version="1.0" encoding="UTF-8"?>
 <model unit="millimeter" xml:lang="en-US" xmlns="http://schemas.microsoft.com/3dmanufacturing/core/2015/02" xmlns:BambuStudio="http://schemas.bambulab.com/package/2021" xmlns:p="http://schemas.microsoft.com/3dmanufacturing/production/2015/06" requiredextensions="p">
  <resources>
@@ -244,15 +194,55 @@ export default class Exporter3MF {
 
         zip.file("3D/3dmodel.model", masterModel);
 
-        // 5. Construct Metadata/model_settings.config
+        // 5. Construct Metadata/model_settings.config with full PART info
+        // This ensures pips render correctly (Bambu Studio "masks")
         const modelSettingsXML = `<?xml version="1.0" encoding="UTF-8"?>
 <config>
-  <object id="8"><metadata key="name" value="6"/><metadata key="extruder" value="1"/></object>
-  <object id="11"><metadata key="name" value="5"/><metadata key="extruder" value="1"/></object>
-  <object id="13"><metadata key="name" value="4"/><metadata key="extruder" value="1"/></object>
-  <object id="15"><metadata key="name" value="3"/><metadata key="extruder" value="1"/></object>
-  <object id="17"><metadata key="name" value="2"/><metadata key="extruder" value="1"/></object>
-  <object id="19"><metadata key="name" value="1"/><metadata key="extruder" value="1"/></object>
+  <object id="8">
+    <metadata key="name" value="6"/><metadata key="extruder" value="1"/>
+    <part id="1" subtype="normal_part"><metadata key="name" value="Body"/><metadata key="extruder" value="2"/></part>
+    <part id="2" subtype="normal_part"><metadata key="name" value="Pip"/><metadata key="extruder" value="1"/></part>
+    <part id="3" subtype="normal_part"><metadata key="name" value="Pip"/><metadata key="extruder" value="1"/></part>
+    <part id="4" subtype="normal_part"><metadata key="name" value="Pip"/><metadata key="extruder" value="1"/></part>
+    <part id="5" subtype="normal_part"><metadata key="name" value="Pip"/><metadata key="extruder" value="1"/></part>
+    <part id="6" subtype="normal_part"><metadata key="name" value="Pip"/><metadata key="extruder" value="1"/></part>
+    <part id="7" subtype="normal_part"><metadata key="name" value="Pip"/><metadata key="extruder" value="1"/></part>
+  </object>
+  <object id="11">
+    <metadata key="name" value="5"/><metadata key="extruder" value="1"/>
+    <part id="9" subtype="normal_part"><metadata key="name" value="Body"/><metadata key="extruder" value="2"/></part>
+    <part id="2" subtype="normal_part"><metadata key="name" value="Pip"/><metadata key="extruder" value="1"/></part>
+    <part id="4" subtype="normal_part"><metadata key="name" value="Pip"/><metadata key="extruder" value="1"/></part>
+    <part id="10" subtype="normal_part"><metadata key="name" value="Pip"/><metadata key="extruder" value="1"/></part>
+    <part id="5" subtype="normal_part"><metadata key="name" value="Pip"/><metadata key="extruder" value="1"/></part>
+    <part id="7" subtype="normal_part"><metadata key="name" value="Pip"/><metadata key="extruder" value="1"/></part>
+  </object>
+  <object id="13">
+    <metadata key="name" value="4"/><metadata key="extruder" value="1"/>
+    <part id="12" subtype="normal_part"><metadata key="name" value="Body"/><metadata key="extruder" value="2"/></part>
+    <part id="2" subtype="normal_part"><metadata key="name" value="Pip"/><metadata key="extruder" value="1"/></part>
+    <part id="4" subtype="normal_part"><metadata key="name" value="Pip"/><metadata key="extruder" value="1"/></part>
+    <part id="5" subtype="normal_part"><metadata key="name" value="Pip"/><metadata key="extruder" value="1"/></part>
+    <part id="7" subtype="normal_part"><metadata key="name" value="Pip"/><metadata key="extruder" value="1"/></part>
+  </object>
+  <object id="15">
+    <metadata key="name" value="3"/><metadata key="extruder" value="1"/>
+    <part id="14" subtype="normal_part"><metadata key="name" value="Body"/><metadata key="extruder" value="2"/></part>
+    <part id="2" subtype="normal_part"><metadata key="name" value="Pip"/><metadata key="extruder" value="1"/></part>
+    <part id="10" subtype="normal_part"><metadata key="name" value="Pip"/><metadata key="extruder" value="1"/></part>
+    <part id="7" subtype="normal_part"><metadata key="name" value="Pip"/><metadata key="extruder" value="1"/></part>
+  </object>
+  <object id="17">
+    <metadata key="name" value="2"/><metadata key="extruder" value="1"/>
+    <part id="16" subtype="normal_part"><metadata key="name" value="Body"/><metadata key="extruder" value="2"/></part>
+    <part id="2" subtype="normal_part"><metadata key="name" value="Pip"/><metadata key="extruder" value="1"/></part>
+    <part id="7" subtype="normal_part"><metadata key="name" value="Pip"/><metadata key="extruder" value="1"/></part>
+  </object>
+  <object id="19">
+    <metadata key="name" value="1"/><metadata key="extruder" value="1"/>
+    <part id="18" subtype="normal_part"><metadata key="name" value="Body"/><metadata key="extruder" value="2"/></part>
+    <part id="10" subtype="normal_part"><metadata key="name" value="Pip"/><metadata key="extruder" value="1"/></part>
+  </object>
   ${platesXML}
   <assemble>
    ${assembleXML}
