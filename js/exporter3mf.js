@@ -67,10 +67,13 @@ export default class Exporter3MF {
         const instId = objectInstanceCounters[objId];
         objectInstanceCounters[objId]++;
 
-        // Position calculation
-        const posX = x * (diceSize + spacing);
-        const posY = y * (diceSize + spacing);
-        const posZ = 1;
+        // Position calculation: centering around 125,125 (midpoint of a 250x250 bed)
+        const offsetX = 125 - (gridWidth * (diceSize + spacing)) / 2;
+        const offsetY = 125 - (gridHeight * (diceSize + spacing)) / 2;
+
+        const posX = offsetX + x * (diceSize + spacing);
+        const posY = offsetY + y * (diceSize + spacing);
+        const posZ = 0; // Bambu usually handles Z docking automatically, but 1 is safe
 
         const transform = `${scale} 0 0 0 ${scale} 0 0 0 ${scale} ${posX} ${posY} ${posZ}`;
         const uuid = `00000000-0000-4000-8000-${index.toString(16).padStart(12, '0')}`;
