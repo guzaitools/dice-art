@@ -51,14 +51,14 @@ export default class Exporter3MF {
         await Promise.all(fetchPromises);
 
         // 2. Define Object Mappings (from Dado Falso - Tope.3mf reference)
-        // Die Face Level (1-6) mapping to Object IDs in 3dmodel.model
+        // Based on component counts: Object id 19 has 2 items (Body+1 pip) = Face 1, etc.
         const dieObjectMapping = {
-            1: 8,
-            2: 11,
-            3: 13,
-            4: 15,
-            5: 17,
-            6: 19
+            1: 19,
+            2: 17,
+            3: 15,
+            4: 13,
+            5: 11,
+            6: 8
         };
 
         // 3. Generate the assembly Model XML
