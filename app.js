@@ -3,7 +3,6 @@ import DiceRenderer from './js/diceRenderer.js';
 import PDFExporter from './js/pdfExporter.js';
 import Exporter3MF from './js/exporter3mf.js';
 import ExporterSCAD from './js/scadExporter.js';
-import ExporterSCAD from './js/scadExporter.js';
 
 /**
  * Main Application Controller
