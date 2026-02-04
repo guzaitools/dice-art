@@ -6,7 +6,8 @@ export default class Exporter3MF {
   }
 
   async generateSinglePlate3MF(diceLevels, gridWidth, gridHeight, diceSize = 10) {
-    console.log(`Generating optimized face-grouped 3MF (${diceSize}mm)...`);
+    console.time('3MF-Generation');
+    console.log(`Generating super-optimized 12-group 3MF (${diceSize}mm)...`);
     const zip = new JSZip();
 
     // 1. Fetch template assets
@@ -44,146 +45,60 @@ export default class Exporter3MF {
     });
     await Promise.all(fetchPromises);
 
-    // 2. Define component helpers for exactly 6 master objects
-    const getComponentsForFace = (face) => {
+    // 2. Define geometry source mapping (from reference investigation)
+    // Body source objects - These are the raw mesh IDs in the respective .model files
+    const bodySources = {
+      6: { path: "/3D/Objects/object_7.model", id: 1 },
+      5: { path: "/3D/Objects/object_8.model", id: 9 },
+      4: { path: "/3D/Objects/object_9.model", id: 12 },
+      3: { path: "/3D/Objects/object_10.model", id: 14 },
+      2: { path: "/3D/Objects/object_11.model", id: 16 },
+      1: { path: "/3D/Objects/object_12.model", id: 18 }
+    };
+
+    // Pip source objects - Using geometry IDs found in previous investigation
+    // Face 6: pips 2,3,4,5,6,7 from object_7
+    // Face 5: pips 2,4 from object_7, 10 from object_8, 5,7 from object_7
+    // Face 4: pips 2,4,5,7 from object_7
+    // Face 3: pips 2 from object_7, 10 from object_8, 7 from object_7
+    // Face 2: pips 2,7 from object_7
+    // Face 1: pips 10 from object_8
+
+    const getPipComponentsForFace = (face, groupUUIDBase) => {
       const p7 = "/3D/Objects/object_7.model";
       const p8 = "/3D/Objects/object_8.model";
-      const p9 = "/3D/Objects/object_9.model";
-      const p10 = "/3D/Objects/object_10.model";
-      const p11 = "/3D/Objects/object_11.model";
-      const p12 = "/3D/Objects/object_12.model";
-
-      const commonTransform = "1 0 0 0 1 0 0 0 1";
-      const pipTransform = (x, y, z) => `${commonTransform} ${x} ${y} ${z}`;
+      const t = (x, y, z) => `1 0 0 0 1 0 0 0 1 ${x} ${y} ${z}`;
+      const c = (path, id, sub, transform) => `<component p:path="${path}" objectid="${id}" p:UUID="${groupUUIDBase}${sub}" transform="${transform}"/>`;
 
       switch (face) {
-        case 6:
-          return `
-    <component p:path="${p7}" objectid="1" p:UUID="00060000-0000-4000-8000-000000000001" transform="${commonTransform} 0 0 0"/>
-    <component p:path="${p7}" objectid="2" p:UUID="00060000-0000-4000-8000-000000000002" transform="${pipTransform(2.5, -2.5, 0.8)}"/>
-    <component p:path="${p7}" objectid="3" p:UUID="00060000-0000-4000-8000-000000000003" transform="${pipTransform(0, -2.5, 0.8)}"/>
-    <component p:path="${p7}" objectid="4" p:UUID="00060000-0000-4000-8000-000000000004" transform="${pipTransform(-2.5, -2.5, 0.8)}"/>
-    <component p:path="${p7}" objectid="5" p:UUID="00060000-0000-4000-8000-000000000005" transform="${pipTransform(2.5, 2.5, 0.8)}"/>
-    <component p:path="${p7}" objectid="6" p:UUID="00060000-0000-4000-8000-000000000006" transform="${pipTransform(0, 2.5, 0.8)}"/>
-    <component p:path="${p7}" objectid="7" p:UUID="00060000-0000-4000-8000-000000000007" transform="${pipTransform(-2.5, 2.5, 0.8)}"/>`;
-        case 5:
-          return `
-    <component p:path="${p8}" objectid="9" p:UUID="00050000-0000-4000-8000-000000000001" transform="${commonTransform} 0 0 0"/>
-    <component p:path="${p7}" objectid="2" p:UUID="00050000-0000-4000-8000-000000000002" transform="${pipTransform(2.5, -2.5, 0.8)}"/>
-    <component p:path="${p7}" objectid="4" p:UUID="00050000-0000-4000-8000-000000000003" transform="${pipTransform(-2.5, -2.5, 0.8)}"/>
-    <component p:path="${p8}" objectid="10" p:UUID="00050000-0000-4000-8000-000000000004" transform="${pipTransform(0, 0, 0.8)}"/>
-    <component p:path="${p7}" objectid="5" p:UUID="00050000-0000-4000-8000-000000000005" transform="${pipTransform(2.5, 2.5, 0.8)}"/>
-    <component p:path="${p7}" objectid="7" p:UUID="00050000-0000-4000-8000-000000000006" transform="${pipTransform(-2.5, 2.5, 0.8)}"/>`;
-        case 4:
-          return `
-    <component p:path="${p9}" objectid="12" p:UUID="00040000-0000-4000-8000-000000000001" transform="${commonTransform} 0 0 0"/>
-    <component p:path="${p7}" objectid="2" p:UUID="00040000-0000-4000-8000-000000000002" transform="${pipTransform(2.5, -2.5, 0.8)}"/>
-    <component p:path="${p7}" objectid="4" p:UUID="00040000-0000-4000-8000-000000000003" transform="${pipTransform(-2.5, -2.5, 0.8)}"/>
-    <component p:path="${p7}" objectid="5" p:UUID="00040000-0000-4000-8000-000000000004" transform="${pipTransform(2.5, 2.5, 0.8)}"/>
-    <component p:path="${p7}" objectid="7" p:UUID="00040000-0000-4000-8000-000000000005" transform="${pipTransform(-2.5, 2.5, 0.8)}"/>`;
-        case 3:
-          return `
-    <component p:path="${p10}" objectid="14" p:UUID="00030000-0000-4000-8000-000000000001" transform="${commonTransform} 0 0 0"/>
-    <component p:path="${p7}" objectid="2" p:UUID="00030000-0000-4000-8000-000000000002" transform="${pipTransform(2.5, -2.5, 0.8)}"/>
-    <component p:path="${p8}" objectid="10" p:UUID="00030000-0000-4000-8000-000000000003" transform="${pipTransform(0, 0, 0.8)}"/>
-    <component p:path="${p7}" objectid="7" p:UUID="00030000-0000-4000-8000-000000000004" transform="${pipTransform(-2.5, 2.5, 0.8)}"/>`;
-        case 2:
-          return `
-    <component p:path="${p11}" objectid="16" p:UUID="00020000-0000-4000-8000-000000000001" transform="${commonTransform} 0 0 0"/>
-    <component p:path="${p7}" objectid="2" p:UUID="00020000-0000-4000-8000-000000000002" transform="${pipTransform(2.5, -2.5, 0.8)}"/>
-    <component p:path="${p7}" objectid="7" p:UUID="00020000-0000-4000-8000-000000000003" transform="${pipTransform(-2.5, 2.5, 0.8)}"/>`;
-        case 1:
-          return `
-    <component p:path="${p12}" objectid="18" p:UUID="00010000-0000-4000-8000-000000000001" transform="${commonTransform} 0 0 0"/>
-    <component p:path="${p8}" objectid="10" p:UUID="00010000-0000-4000-8000-000000000002" transform="${pipTransform(0, 0, 0.8)}"/>`;
+        case 6: return [
+          c(p7, 2, "02", t(2.5, -2.5, 0.8)), c(p7, 3, "03", t(0, -2.5, 0.8)), c(p7, 4, "04", t(-2.5, -2.5, 0.8)),
+          c(p7, 5, "05", t(2.5, 2.5, 0.8)), c(p7, 6, "06", t(0, 2.5, 0.8)), c(p7, 7, "07", t(-2.5, 2.5, 0.8))
+        ].join('');
+        case 5: return [
+          c(p7, 2, "02", t(2.5, -2.5, 0.8)), c(p7, 4, "04", t(-2.5, -2.5, 0.8)), c(p8, 10, "10", t(0, 0, 0.8)),
+          c(p7, 5, "05", t(2.5, 2.5, 0.8)), c(p7, 7, "07", t(-2.5, 2.5, 0.8))
+        ].join('');
+        case 4: return [
+          c(p7, 2, "02", t(2.5, -2.5, 0.8)), c(p7, 4, "04", t(-2.5, -2.5, 0.8)),
+          c(p7, 5, "05", t(2.5, 2.5, 0.8)), c(p7, 7, "07", t(-2.5, 2.5, 0.8))
+        ].join('');
+        case 3: return [
+          c(p7, 2, "02", t(2.5, -2.5, 0.8)), c(p8, 10, "10", t(0, 0, 0.8)), c(p7, 7, "07", t(-2.5, 2.5, 0.8))
+        ].join('');
+        case 2: return [
+          c(p7, 2, "02", t(2.5, -2.5, 0.8)), c(p7, 7, "07", t(-2.5, 2.5, 0.8))
+        ].join('');
+        case 1: return [
+          c(p8, 10, "10", t(0, 0, 0.8))
+        ].join('');
         default: return "";
       }
     };
 
-    const getPartMeta = (face) => {
-      const getPart = (pid, name, extr, sfile, sid, x = 0, y = 0, z = 0) => {
-        const matrix = `1 0 0 ${x} 0 1 0 ${y} 0 0 1 ${z} 0 0 0 1`;
-        return `<part id="${pid}" subtype="normal_part">
-      <metadata key="name" value="${name}"/>
-      <metadata key="matrix" value="${matrix}"/>
-      <metadata key="source_file" value="${sfile}"/>
-      <metadata key="source_object_id" value="${sid}"/>
-      <metadata key="source_volume_id" value="0"/>
-      <metadata key="extruder" value="${extr}"/>
-    </part>`;
-      };
-
-      const p7 = "object_7.model";
-      const p8 = "object_8.model";
-      const p9 = "object_9.model";
-      const p10 = "object_10.model";
-      const p11 = "object_11.model";
-      const p12 = "object_12.model";
-
-      switch (face) {
-        case 6:
-          return `
-    <metadata key="name" value="6"/><metadata key="extruder" value="1"/>
-    ${getPart(1, "Body", 2, p7, 1)}
-    ${getPart(2, "Pip", 1, p7, 2, 2.5, -2.5, 0.8)}
-    ${getPart(3, "Pip", 1, p7, 3, 0, -2.5, 0.8)}
-    ${getPart(4, "Pip", 1, p7, 4, -2.5, -2.5, 0.8)}
-    ${getPart(5, "Pip", 1, p7, 5, 2.5, 2.5, 0.8)}
-    ${getPart(6, "Pip", 1, p7, 6, 0, 2.5, 0.8)}
-    ${getPart(7, "Pip", 1, p7, 7, -2.5, 2.5, 0.8)}`;
-        case 5:
-          return `
-    <metadata key="name" value="5"/><metadata key="extruder" value="1"/>
-    ${getPart(9, "Body", 2, p8, 9)}
-    ${getPart(2, "Pip", 1, p7, 2, 2.5, -2.5, 0.8)}
-    ${getPart(4, "Pip", 1, p7, 4, -2.5, -2.5, 0.8)}
-    ${getPart(10, "Pip", 1, p8, 10, 0, 0, 0.8)}
-    ${getPart(5, "Pip", 1, p7, 5, 2.5, 2.5, 0.8)}
-    ${getPart(7, "Pip", 1, p7, 7, -2.5, 2.5, 0.8)}`;
-        case 4:
-          return `
-    <metadata key="name" value="4"/><metadata key="extruder" value="1"/>
-    ${getPart(12, "Body", 2, p9, 12)}
-    ${getPart(2, "Pip", 1, p7, 2, 2.5, -2.5, 0.8)}
-    ${getPart(4, "Pip", 1, p7, 4, -2.5, -2.5, 0.8)}
-    ${getPart(5, "Pip", 1, p7, 5, 2.5, 2.5, 0.8)}
-    ${getPart(7, "Pip", 1, p7, 7, -2.5, 2.5, 0.8)}`;
-        case 3:
-          return `
-    <metadata key="name" value="3"/><metadata key="extruder" value="1"/>
-    ${getPart(14, "Body", 2, p10, 14)}
-    ${getPart(2, "Pip", 1, p7, 2, 2.5, -2.5, 0.8)}
-    ${getPart(10, "Pip", 1, p8, 10, 0, 0, 0.8)}
-    ${getPart(7, "Pip", 1, p7, 7, -2.5, 2.5, 0.8)}`;
-        case 2:
-          return `
-    <metadata key="name" value="2"/><metadata key="extruder" value="1"/>
-    ${getPart(16, "Body", 2, p11, 16)}
-    ${getPart(2, "Pip", 1, p7, 2, 2.5, -2.5, 0.8)}
-    ${getPart(7, "Pip", 1, p7, 7, -2.5, 2.5, 0.8)}`;
-        case 1:
-          return `
-    <metadata key="name" value="1"/><metadata key="extruder" value="1"/>
-    ${getPart(18, "Body", 2, p12, 18)}
-    ${getPart(10, "Pip", 1, p8, 10, 0, 0, 0.8)}`;
-        default: return "";
-      }
-    };
-
-    // 3. Define the 6 master objects
-    let resourcesXML = "";
-    for (let face = 1; face <= 6; face++) {
-      resourcesXML += `
-  <object id="${face}" p:UUID="00000000-0000-4000-8000-00000000000${face}" type="model">
-   <components>${getComponentsForFace(face)}
-   </components>
-  </object>`;
-    }
-
-    // 4. Grid Loop: Use items referencing the 6 master objects
-    let buildItemsXML = "";
-    let plateInstancesXML = "";
-    const faceInstanceCounters = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0 };
+    // 3. Populate groups per face type
+    const bodiesByFace = { 1: [], 2: [], 3: [], 4: [], 5: [], 6: [] };
+    const pipsByFace = { 1: [], 2: [], 3: [], 4: [], 5: [], 6: [] };
 
     const scale = diceSize / 10;
     const spacing = 0.1;
@@ -196,31 +111,100 @@ export default class Exporter3MF {
         const face = diceLevels[index];
         if (face < 1 || face > 6) continue;
 
-        const instId = faceInstanceCounters[face];
-        faceInstanceCounters[face]++;
-
         const posX = offsetX + x * (diceSize + spacing);
         const posY = offsetY + y * (diceSize + spacing);
-        const transform = `${scale} 0 0 0 ${scale} 0 0 0 ${scale} ${posX} ${posY} 0`;
-        const itemUUID = `00000000-0000-4000-9000-${index.toString(16).padStart(12, '0')}`;
+        const transform = `1 0 0 0 1 0 0 0 1 ${posX / scale} ${posY / scale} 0`;
+        const uuidSuffix = index.toString(16).padStart(8, '0');
 
-        buildItemsXML += `<item objectid="${face}" p:UUID="${itemUUID}" transform="${transform}" printable="1"/>\n  `;
+        // Add body component
+        bodiesByFace[face].push(
+          `<component p:path="${bodySources[face].path}" objectid="${bodySources[face].id}" p:UUID="0000B000-0000-4000-8000-${uuidSuffix}" transform="${transform}"/>`
+        );
 
-        plateInstancesXML += `
-    <model_instance>
-      <metadata key="object_id" value="${face}"/>
-      <metadata key="instance_id" value="${instId}"/>
-      <metadata key="identify_id" value="${1000 + index}"/>
-    </model_instance>`;
+        // Add pip components (pre-positioned relative to the body in its own group)
+        // Note: The pips inside the face-pip-group are already offset by posX,posY
+        const pips = getPipComponentsForFace(face, `0000P000-0000-4000-8000-${uuidSuffix}`);
+        pipsByFace[face].push(`<object p:UUID="0000G000-0000-4000-8000-${uuidSuffix}" transform="${transform}">${pips}</object>`);
       }
     }
 
-    // 5. Model Settings Objects: Just 6 entries
+    // 4. Generate the 12 master resource objects
+    let resourcesXML = "";
+    let buildItemsXML = "";
+    let plateInstancesXML = "";
     let modelSettingsObjectsXML = "";
+
+    const commonScaleTransform = `${scale} 0 0 0 ${scale} 0 0 0 ${scale} 0 0 0`;
+
     for (let face = 1; face <= 6; face++) {
-      modelSettingsObjectsXML += `
-  <object id="${face}">${getPartMeta(face)}
+      const bodyGroupId = 100 + face;
+      const pipGroupId = 200 + face;
+
+      // Bodies Group
+      resourcesXML += `
+  <object id="${bodyGroupId}" p:UUID="00000B00-0000-4000-8000-00000000000${face}" type="model">
+    <components>
+      ${bodiesByFace[face].join('\n      ')}
+    </components>
   </object>`;
+
+      // Pips Group - Standard 3MF doesn't support <object> inside <components> directly usually,
+      // but we can just use the components directly from the pip helper but adding the posX/posY offset
+      // Wait, let's optimize: build the pip components list with the absolute grid positions
+      let pipComponentsForGroup = [];
+      for (let y = 0; y < gridHeight; y++) {
+        for (let x = 0; x < gridWidth; x++) {
+          const index = y * gridWidth + x;
+          if (diceLevels[index] !== face) continue;
+
+          const posX = offsetX + x * (diceSize + spacing);
+          const posY = offsetY + y * (diceSize + spacing);
+          const uuidSuffix = index.toString(16).padStart(8, '0');
+
+          const p7 = "/3D/Objects/object_7.model";
+          const p8 = "/3D/Objects/object_8.model";
+          const t = (ox, oy, oz) => `1 0 0 0 1 0 0 0 1 ${(posX + ox * scale) / scale} ${(posY + oy * scale) / scale} ${oz}`;
+          const c = (path, id, sub, transform) => `<component p:path="${path}" objectid="${id}" p:UUID="0000P000-0000-4000-8000-${uuidSuffix}${sub}" transform="${transform}"/>`;
+
+          switch (face) {
+            case 6: pipComponentsForGroup.push(c(p7, 2, "02", t(2.5, -2.5, 0.8)), c(p7, 3, "03", t(0, -2.5, 0.8)), c(p7, 4, "04", t(-2.5, -2.5, 0.8)), c(p7, 5, "05", t(2.5, 2.5, 0.8)), c(p7, 6, "06", t(0, 2.5, 0.8)), c(p7, 7, "07", t(-2.5, 2.5, 0.8))); break;
+            case 5: pipComponentsForGroup.push(c(p7, 2, "02", t(2.5, -2.5, 0.8)), c(p7, 4, "04", t(-2.5, -2.5, 0.8)), c(p8, 10, "10", t(0, 0, 0.8)), c(p7, 5, "05", t(2.5, 2.5, 0.8)), c(p7, 7, "07", t(-2.5, 2.5, 0.8))); break;
+            case 4: pipComponentsForGroup.push(c(p7, 2, "02", t(2.5, -2.5, 0.8)), c(p7, 4, "04", t(-2.5, -2.5, 0.8)), c(p7, 5, "05", t(2.5, 2.5, 0.8)), c(p7, 7, "07", t(-2.5, 2.5, 0.8))); break;
+            case 3: pipComponentsForGroup.push(c(p7, 2, "02", t(2.5, -2.5, 0.8)), c(p8, 10, "10", t(0, 0, 0.8)), c(p7, 7, "07", t(-2.5, 2.5, 0.8))); break;
+            case 2: pipComponentsForGroup.push(c(p7, 2, "02", t(2.5, -2.5, 0.8)), c(p7, 7, "07", t(-2.5, 2.5, 0.8))); break;
+            case 1: pipComponentsForGroup.push(c(p8, 10, "10", t(0, 0, 0.8))); break;
+          }
+        }
+      }
+
+      resourcesXML += `
+  <object id="${pipGroupId}" p:UUID="00000P00-0000-4000-8000-00000000000${face}" type="model">
+    <components>
+      ${pipComponentsForGroup.join('\n      ')}
+    </components>
+  </object>`;
+
+      // Build Items (just 12)
+      buildItemsXML += `<item objectid="${bodyGroupId}" p:UUID="00000000-0000-4000-A000-00000000000${face}" transform="${commonScaleTransform}" printable="1"/>\n  `;
+      buildItemsXML += `<item objectid="${pipGroupId}" p:UUID="00000000-0000-4000-B000-00000000000${face}" transform="${commonScaleTransform}" printable="1"/>\n  `;
+
+      // Plate Instances
+      plateInstancesXML += `
+    <model_instance>
+      <metadata key="object_id" value="${bodyGroupId}"/>
+      <metadata key="instance_id" value="0"/>
+      <metadata key="identify_id" value="${100 + face}"/>
+    </model_instance>
+    <model_instance>
+      <metadata key="object_id" value="${pipGroupId}"/>
+      <metadata key="instance_id" value="0"/>
+      <metadata key="identify_id" value="${200 + face}"/>
+    </model_instance>`;
+
+      // Metadata mappings
+      modelSettingsObjectsXML += `
+  <object id="${bodyGroupId}"><metadata key="name" value="Bodies-Face-${face}"/><metadata key="extruder" value="2"/></object>
+  <object id="${pipGroupId}"><metadata key="name" value="Pips-Face-${face}"/><metadata key="extruder" value="1"/></object>`;
     }
 
     const modelXML = `<?xml version="1.0" encoding="UTF-8"?>
@@ -250,9 +234,9 @@ export default class Exporter3MF {
 
     const content = await zip.generateAsync({
       type: "blob",
-      compression: "DEFLATE",
-      compressionOptions: { level: 9 }
+      compression: "STORE", // No compression for speed
     });
+    console.timeEnd('3MF-Generation');
     return content;
   }
 
