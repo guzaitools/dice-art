@@ -5,9 +5,7 @@
 
 import ImageProcessor from '../imageProcessor.js';
 import DiceRenderer from '../diceRenderer.js';
-import PDFExporter from '../pdfExporter.js';
-import Exporter3MF from '../exporter3mf.js';
-import ExporterSCAD from '../scadExporter.js';
+import ExporterFactory from '../exporters/ExporterFactory.js';
 import SettingsManager from './SettingsManager.js';
 import UIManager from './UIManager.js';
 import { DEFAULT_DIE_COLOR, DEFAULT_POINT_COLOR, DEFAULT_GRID_SIZE } from '../constants.js';
@@ -20,12 +18,10 @@ export default class AppController {
      * @param {Object} options.domElements - DOM element references
      */
     constructor(options = {}) {
-        // Initialize modules
+        // Initialize core modules
         this.imageProcessor = new ImageProcessor();
         this.diceRenderer = new DiceRenderer();
-        this.pdfExporter = new PDFExporter();
-        this.exporter3mf = new Exporter3MF();
-        this.scadExporter = new ExporterSCAD();
+        this.exporterFactory = new ExporterFactory();
 
         // Initialize managers
         const defaults = {
@@ -43,6 +39,10 @@ export default class AppController {
 
         // Application state
         this.lastResult = null;
+
+        // Performance: Cache for processed results
+        this.resultCache = new Map();
+        this.maxCacheSize = 5;
     }
 
     /**
@@ -135,8 +135,8 @@ export default class AppController {
     }
 
     /**
-     * Reprocess current image with updated settings
-     */
+   * Reprocess current image with updated settings
+   */
     async reprocessImage() {
         if (!this.imageProcessor.originalImage) {
             console.warn('No image loaded to reprocess');
@@ -145,6 +145,15 @@ export default class AppController {
 
         try {
             const settings = this.settingsManager.getSettings();
+
+            // Performance: Check cache
+            const cacheKey = this.generateCacheKey(settings);
+            if (this.resultCache.has(cacheKey)) {
+                console.log('Using cached result');
+                const cachedResult = this.resultCache.get(cacheKey);
+                await this.applyResult(cachedResult);
+                return cachedResult;
+            }
 
             this.uiManager.setLoading(true, 'Reprocessing...');
 
@@ -168,12 +177,11 @@ export default class AppController {
                 result.gridHeight
             );
 
-            // Update UI
-            this.uiManager.updateInfo(result.gridWidth, result.gridHeight, result.totalDice);
-            this.uiManager.updateDiceStats(result.diceLevels, result.gridWidth, result.gridHeight);
+            // Cache result
+            this.cacheResult(cacheKey, result);
 
-            // Store result
-            this.lastResult = result;
+            // Update UI
+            await this.applyResult(result);
 
             this.uiManager.setLoading(false);
             return result;
@@ -187,11 +195,44 @@ export default class AppController {
     }
 
     /**
-     * Handle export request
-     * @param {string} type - Export type ('pdf', '3mf', 'scad')
-     * @param {Object} options - Export options
+     * Apply a processing result to the UI
+     * @param {Object} result - Processing result
      */
-    async handleExport(type, options = {}) {
+    async applyResult(result) {
+        this.uiManager.updateInfo(result.gridWidth, result.gridHeight, result.totalDice);
+        this.uiManager.updateDiceStats(result.diceLevels, result.gridWidth, result.gridHeight);
+        this.lastResult = result;
+    }
+
+    /**
+     * Generate cache key from settings
+     * @param {Object} settings - Current settings
+     * @returns {string} Cache key
+     */
+    generateCacheKey(settings) {
+        return `${settings.gridSize}_${settings.brightness}_${settings.contrast}_${settings.sourceGrayscale}`;
+    }
+
+    /**
+     * Cache a processing result
+     * @param {string} key - Cache key
+     * @param {Object} result - Result to cache
+     */
+    cacheResult(key, result) {
+        // Implement LRU: remove oldest if cache is full
+        if (this.resultCache.size >= this.maxCacheSize) {
+            const firstKey = this.resultCache.keys().next().value;
+            this.resultCache.delete(firstKey);
+        }
+        this.resultCache.set(key, result);
+    }
+
+    /**
+   * Handle export request
+   * @param {string} format - Export format ('pdf', '3mf', 'scad')
+   * @param {Object} options - Format-specific export options
+   */
+    async handleExport(format, options = {}) {
         if (!this.lastResult) {
             this.uiManager.showError('No image processed yet');
             return;
@@ -199,74 +240,30 @@ export default class AppController {
 
         const settings = this.settingsManager.getSettings();
 
+        // Prepare export data
+        const exportData = {
+            diceLevels: this.lastResult.diceLevels,
+            gridWidth: this.lastResult.gridWidth,
+            gridHeight: this.lastResult.gridHeight,
+            diceCanvas: this.uiManager.elements.diceCanvas,
+            originalCanvas: this.uiManager.elements.originalCanvas,
+        };
+
+        // Merge options with settings
+        const exportOptions = {
+            diceSize: settings.diceSize,
+            ...options,
+        };
+
         try {
-            switch (type) {
-                case 'pdf':
-                    return await this.exportPDF();
-                case '3mf':
-                    return await this.export3MF(options);
-                case 'scad':
-                    return await this.exportSCAD();
-                default:
-                    throw new Error(`Unknown export type: ${type}`);
-            }
+            const blob = await this.exporterFactory.export(format, exportData, exportOptions);
+            console.log(`${format.toUpperCase()} export successful`);
+            return blob;
         } catch (error) {
-            console.error(`Error exporting ${type}:`, error);
-            this.uiManager.showError(`Error generating ${type.toUpperCase()}`);
+            console.error(`Error exporting ${format}:`, error);
+            this.uiManager.showError(`Error generating ${format.toUpperCase()}`);
             throw error;
         }
-    }
-
-    /**
-     * Export as PDF
-     */
-    async exportPDF() {
-        const blob = await this.pdfExporter.exportProject(
-            this.uiManager.elements.diceCanvas,
-            this.uiManager.elements.originalCanvas,
-            {
-                gridWidth: this.lastResult.gridWidth,
-                gridHeight: this.lastResult.gridHeight,
-                totalDice: this.lastResult.totalDice,
-            }
-        );
-
-        this.exporter3mf.saveFile(blob, 'dice-art-project.pdf');
-        return blob;
-    }
-
-    /**
-     * Export as 3MF
-     */
-    async export3MF(options = {}) {
-        const settings = this.settingsManager.getSettings();
-        const blob = await this.exporter3mf.generateSinglePlate3MF(
-            this.lastResult.diceLevels,
-            this.lastResult.gridWidth,
-            this.lastResult.gridHeight,
-            settings.diceSize,
-            options
-        );
-
-        this.exporter3mf.saveFile(blob, `dice-art-${settings.diceSize}mm.3mf`);
-        return blob;
-    }
-
-    /**
-     * Export as OpenSCAD
-     */
-    async exportSCAD() {
-        const settings = this.settingsManager.getSettings();
-        const scadCode = this.scadExporter.generateSCAD(
-            this.lastResult.diceLevels,
-            this.lastResult.gridWidth,
-            this.lastResult.gridHeight,
-            settings.diceSize
-        );
-
-        const blob = new Blob([scadCode], { type: 'text/plain' });
-        this.exporter3mf.saveFile(blob, `dice-art-${settings.diceSize}mm.scad`);
-        return blob;
     }
 
     /**
