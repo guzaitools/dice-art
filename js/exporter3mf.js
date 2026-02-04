@@ -6,7 +6,7 @@ export default class Exporter3MF {
     }
 
     async generate3MF(diceLevels, gridWidth, gridHeight) {
-        console.log("Generating production multi-plate 3MF project...");
+        console.log("Generating final multi-plate 3MF project...");
 
         const zip = new JSZip();
 
@@ -89,18 +89,17 @@ export default class Exporter3MF {
         let assembleXML = "";
         const objectInstanceCounters = { 8: 0, 11: 0, 13: 0, 15: 0, 17: 0, 19: 0 };
 
-        // Configuration for plate layout
-        const plateSpacingX = 250; // Horizontal spacing between plates in 3D space
-        const plateSpacingY = 250;
-        const platesPerRow = 3;
+        // SPATIAL STRATEGY: Offset plates by 250mm to trigger plate separation.
+        const plateSpacingX = 250;
+        const platesPerRow = 2; // Keep it compact (2x3 or 2xN)
 
         optimizedPlates.forEach((plate, pIdx) => {
             const platerId = pIdx + 1;
             let plateInstancesXML = "";
 
-            // Plate origin in world space to avoid overlapping
+            // Absolute world coordinates for this physical plate
             const plateOriginX = (pIdx % platesPerRow) * plateSpacingX;
-            const plateOriginY = Math.floor(pIdx / platesPerRow) * plateSpacingY;
+            const plateOriginY = Math.floor(pIdx / platesPerRow) * plateSpacingX;
 
             const cols = 10;
             const size = 10;
@@ -114,9 +113,9 @@ export default class Exporter3MF {
                 const col = i % cols;
                 const row = Math.floor(i / cols);
 
-                // Position relative to plate origin
-                const x = plateOriginX + col * (size + spacing);
-                const y = plateOriginY + row * (size + spacing);
+                // Position relative to plate origin (centered roughly at 50,50 within the 250x250 slot)
+                const x = plateOriginX + 50 + col * (size + spacing);
+                const y = plateOriginY + 50 + row * (size + spacing);
                 const z = 1;
 
                 const transform = `1 0 0 0 1 0 0 0 1 ${x} ${y} ${z}`;
@@ -144,7 +143,7 @@ export default class Exporter3MF {
   </plate>\n`;
         });
 
-        // 4. Detailed Object Resources (Fixed hierarchy for pips rendering)
+        // 4. Model Resources (Ensuring correct object IDs and Z height)
         const masterModel = `<?xml version="1.0" encoding="UTF-8"?>
 <model unit="millimeter" xml:lang="en-US" xmlns="http://schemas.microsoft.com/3dmanufacturing/core/2015/02" xmlns:BambuStudio="http://schemas.bambulab.com/package/2021" xmlns:p="http://schemas.microsoft.com/3dmanufacturing/production/2015/06" requiredextensions="p">
  <resources>
@@ -208,52 +207,53 @@ export default class Exporter3MF {
         zip.file("3D/3dmodel.model", masterModel);
 
         // 5. Construct Metadata/model_settings.config
+        // Replicating EXACT parts hierarchy with source_object/volume/file metadata
         const modelSettingsXML = `<?xml version="1.0" encoding="UTF-8"?>
 <config>
   <object id="8">
     <metadata key="name" value="6"/><metadata key="extruder" value="1"/>
-    <part id="1" subtype="normal_part"><metadata key="name" value="Body"/><metadata key="extruder" value="2"/></part>
-    <part id="2" subtype="normal_part"><metadata key="name" value="Pip"/><metadata key="extruder" value="1"/></part>
-    <part id="3" subtype="normal_part"><metadata key="name" value="Pip"/><metadata key="extruder" value="1"/></part>
-    <part id="4" subtype="normal_part"><metadata key="name" value="Pip"/><metadata key="extruder" value="1"/></part>
-    <part id="5" subtype="normal_part"><metadata key="name" value="Pip"/><metadata key="extruder" value="1"/></part>
-    <part id="6" subtype="normal_part"><metadata key="name" value="Pip"/><metadata key="extruder" value="1"/></part>
-    <part id="7" subtype="normal_part"><metadata key="name" value="Pip"/><metadata key="extruder" value="1"/></part>
+    <part id="1" subtype="normal_part"><metadata key="name" value="Body"/><metadata key="extruder" value="2"/><metadata key="matrix" value="1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1"/></part>
+    <part id="2" subtype="normal_part"><metadata key="name" value="Pip"/><metadata key="extruder" value="1"/><metadata key="matrix" value="1 0 0 2.5 0 1 0 -2.5 0 0 1 0.8 0 0 0 1"/></part>
+    <part id="3" subtype="normal_part"><metadata key="name" value="Pip"/><metadata key="extruder" value="1"/><metadata key="matrix" value="1 0 0 0 0 1 0 -2.5 0 0 1 0.8 0 0 0 1"/></part>
+    <part id="4" subtype="normal_part"><metadata key="name" value="Pip"/><metadata key="extruder" value="1"/><metadata key="matrix" value="1 0 0 -2.5 0 1 0 -2.5 0 0 1 0.8 0 0 0 1"/></part>
+    <part id="5" subtype="normal_part"><metadata key="name" value="Pip"/><metadata key="extruder" value="1"/><metadata key="matrix" value="1 0 0 2.5 0 1 0 2.5 0 0 1 0.8 0 0 0 1"/></part>
+    <part id="6" subtype="normal_part"><metadata key="name" value="Pip"/><metadata key="extruder" value="1"/><metadata key="matrix" value="1 0 0 0 0 1 0 2.5 0 0 1 0.8 0 0 0 1"/></part>
+    <part id="7" subtype="normal_part"><metadata key="name" value="Pip"/><metadata key="extruder" value="1"/><metadata key="matrix" value="1 0 0 -2.5 0 1 0 2.5 0 0 1 0.8 0 0 0 1"/></part>
   </object>
   <object id="11">
     <metadata key="name" value="5"/><metadata key="extruder" value="1"/>
-    <part id="9" subtype="normal_part"><metadata key="name" value="Body"/><metadata key="extruder" value="2"/></part>
-    <part id="2" subtype="normal_part"><metadata key="name" value="Pip"/><metadata key="extruder" value="1"/></part>
-    <part id="4" subtype="normal_part"><metadata key="name" value="Pip"/><metadata key="extruder" value="1"/></part>
-    <part id="10" subtype="normal_part"><metadata key="name" value="Pip"/><metadata key="extruder" value="1"/></part>
-    <part id="5" subtype="normal_part"><metadata key="name" value="Pip"/><metadata key="extruder" value="1"/></part>
-    <part id="7" subtype="normal_part"><metadata key="name" value="Pip"/><metadata key="extruder" value="1"/></part>
+    <part id="9" subtype="normal_part"><metadata key="name" value="Body"/><metadata key="extruder" value="2"/><metadata key="matrix" value="1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1"/></part>
+    <part id="2" subtype="normal_part"><metadata key="name" value="Pip"/><metadata key="extruder" value="1"/><metadata key="matrix" value="1 0 0 2.5 0 1 0 -2.5 0 0 1 0.8 0 0 0 1"/></part>
+    <part id="4" subtype="normal_part"><metadata key="name" value="Pip"/><metadata key="extruder" value="1"/><metadata key="matrix" value="1 0 0 -2.5 0 1 0 -2.5 0 0 1 0.8 0 0 0 1"/></part>
+    <part id="10" subtype="normal_part"><metadata key="name" value="Pip"/><metadata key="extruder" value="1"/><metadata key="matrix" value="1 0 0 0 0 1 0 0 0 0 1 0.8 0 0 0 1"/></part>
+    <part id="5" subtype="normal_part"><metadata key="name" value="Pip"/><metadata key="extruder" value="1"/><metadata key="matrix" value="1 0 0 2.5 0 1 0 2.5 0 0 1 0.8 0 0 0 1"/></part>
+    <part id="7" subtype="normal_part"><metadata key="name" value="Pip"/><metadata key="extruder" value="1"/><metadata key="matrix" value="1 0 0 -2.5 0 1 0 2.5 0 0 1 0.8 0 0 0 1"/></part>
   </object>
   <object id="13">
     <metadata key="name" value="4"/><metadata key="extruder" value="1"/>
-    <part id="12" subtype="normal_part"><metadata key="name" value="Body"/><metadata key="extruder" value="2"/></part>
-    <part id="2" subtype="normal_part"><metadata key="name" value="Pip"/><metadata key="extruder" value="1"/></part>
-    <part id="4" subtype="normal_part"><metadata key="name" value="Pip"/><metadata key="extruder" value="1"/></part>
-    <part id="5" subtype="normal_part"><metadata key="name" value="Pip"/><metadata key="extruder" value="1"/></part>
-    <part id="7" subtype="normal_part"><metadata key="name" value="Pip"/><metadata key="extruder" value="1"/></part>
+    <part id="12" subtype="normal_part"><metadata key="name" value="Body"/><metadata key="extruder" value="2"/><metadata key="matrix" value="1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1"/></part>
+    <part id="2" subtype="normal_part"><metadata key="name" value="Pip"/><metadata key="extruder" value="1"/><metadata key="matrix" value="1 0 0 2.5 0 1 0 -2.5 0 0 1 0.8 0 0 0 1"/></part>
+    <part id="4" subtype="normal_part"><metadata key="name" value="Pip"/><metadata key="extruder" value="1"/><metadata key="matrix" value="1 0 0 -2.5 0 1 0 -2.5 0 0 1 0.8 0 0 0 1"/></part>
+    <part id="5" subtype="normal_part"><metadata key="name" value="Pip"/><metadata key="extruder" value="1"/><metadata key="matrix" value="1 0 0 2.5 0 1 0 2.5 0 0 1 0.8 0 0 0 1"/></part>
+    <part id="7" subtype="normal_part"><metadata key="name" value="Pip"/><metadata key="extruder" value="1"/><metadata key="matrix" value="1 0 0 -2.5 0 1 0 2.5 0 0 1 0.8 0 0 0 1"/></part>
   </object>
   <object id="15">
     <metadata key="name" value="3"/><metadata key="extruder" value="1"/>
-    <part id="14" subtype="normal_part"><metadata key="name" value="Body"/><metadata key="extruder" value="2"/></part>
-    <part id="2" subtype="normal_part"><metadata key="name" value="Pip"/><metadata key="extruder" value="1"/></part>
-    <part id="10" subtype="normal_part"><metadata key="name" value="Pip"/><metadata key="extruder" value="1"/></part>
-    <part id="7" subtype="normal_part"><metadata key="name" value="Pip"/><metadata key="extruder" value="1"/></part>
+    <part id="14" subtype="normal_part"><metadata key="name" value="Body"/><metadata key="extruder" value="2"/><metadata key="matrix" value="1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1"/></part>
+    <part id="2" subtype="normal_part"><metadata key="name" value="Pip"/><metadata key="extruder" value="1"/><metadata key="matrix" value="1 0 0 2.5 0 1 0 -2.5 0 0 1 0.8 0 0 0 1"/></part>
+    <part id="10" subtype="normal_part"><metadata key="name" value="Pip"/><metadata key="extruder" value="1"/><metadata key="matrix" value="1 0 0 0 0 1 0 0 0 0 1 0.8 0 0 0 1"/></part>
+    <part id="7" subtype="normal_part"><metadata key="name" value="Pip"/><metadata key="extruder" value="1"/><metadata key="matrix" value="1 0 0 -2.5 0 1 0 2.5 0 0 1 0.8 0 0 0 1"/></part>
   </object>
   <object id="17">
     <metadata key="name" value="2"/><metadata key="extruder" value="1"/>
-    <part id="16" subtype="normal_part"><metadata key="name" value="Body"/><metadata key="extruder" value="2"/></part>
-    <part id="2" subtype="normal_part"><metadata key="name" value="Pip"/><metadata key="extruder" value="1"/></part>
-    <part id="7" subtype="normal_part"><metadata key="name" value="Pip"/><metadata key="extruder" value="1"/></part>
+    <part id="16" subtype="normal_part"><metadata key="name" value="Body"/><metadata key="extruder" value="2"/><metadata key="matrix" value="1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1"/></part>
+    <part id="2" subtype="normal_part"><metadata key="name" value="Pip"/><metadata key="extruder" value="1"/><metadata key="matrix" value="1 0 0 2.5 0 1 0 -2.5 0 0 1 0.8 0 0 0 1"/></part>
+    <part id="7" subtype="normal_part"><metadata key="name" value="Pip"/><metadata key="extruder" value="1"/><metadata key="matrix" value="1 0 0 -2.5 0 1 0 2.5 0 0 1 0.8 0 0 0 1"/></part>
   </object>
   <object id="19">
     <metadata key="name" value="1"/><metadata key="extruder" value="1"/>
-    <part id="18" subtype="normal_part"><metadata key="name" value="Body"/><metadata key="extruder" value="2"/></part>
-    <part id="10" subtype="normal_part"><metadata key="name" value="Pip"/><metadata key="extruder" value="1"/></part>
+    <part id="18" subtype="normal_part"><metadata key="name" value="Body"/><metadata key="extruder" value="2"/><metadata key="matrix" value="1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1"/></part>
+    <part id="10" subtype="normal_part"><metadata key="name" value="Pip"/><metadata key="extruder" value="1"/><metadata key="matrix" value="1 0 0 0 0 1 0 0 0 0 1 0.8 0 0 0 1"/></part>
   </object>
   ${platesXML}
   <assemble>
