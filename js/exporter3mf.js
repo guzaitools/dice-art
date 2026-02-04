@@ -6,7 +6,7 @@ export default class Exporter3MF {
   }
 
   async generateSinglePlate3MF(diceLevels, gridWidth, gridHeight, diceSize = 10) {
-    console.log(`Generating robust 3MF with full metadata parity (${diceSize}mm)...`);
+    console.log(`Generating unique-object 3MF for maximum compatibility (${diceSize}mm)...`);
     const zip = new JSZip();
 
     // 1. Fetch template assets
@@ -44,18 +44,142 @@ export default class Exporter3MF {
     });
     await Promise.all(fetchPromises);
 
-    const dieObjectMapping = {
-      1: 19, 2: 17, 3: 15, 4: 13, 5: 11, 6: 8
+    // 2. Define component helpers
+    const getComponentsForFace = (face, objIdBase) => {
+      const p7 = "/3D/Objects/object_7.model";
+      const p8 = "/3D/Objects/object_8.model";
+      const p9 = "/3D/Objects/object_9.model";
+      const p10 = "/3D/Objects/object_10.model";
+      const p11 = "/3D/Objects/object_11.model";
+      const p12 = "/3D/Objects/object_12.model";
+
+      const commonTransform = "1 0 0 0 1 0 0 0 1";
+      const pipTransform = (x, y, z) => `${commonTransform} ${x} ${y} ${z}`;
+
+      switch (face) {
+        case 6:
+          return `
+    <component p:path="${p7}" objectid="1" p:UUID="${objIdBase}0001" transform="${commonTransform} 0 0 0"/>
+    <component p:path="${p7}" objectid="2" p:UUID="${objIdBase}0002" transform="${pipTransform(2.5, -2.5, 0.8)}"/>
+    <component p:path="${p7}" objectid="3" p:UUID="${objIdBase}0003" transform="${pipTransform(0, -2.5, 0.8)}"/>
+    <component p:path="${p7}" objectid="4" p:UUID="${objIdBase}0004" transform="${pipTransform(-2.5, -2.5, 0.8)}"/>
+    <component p:path="${p7}" objectid="5" p:UUID="${objIdBase}0005" transform="${pipTransform(2.5, 2.5, 0.8)}"/>
+    <component p:path="${p7}" objectid="6" p:UUID="${objIdBase}0006" transform="${pipTransform(0, 2.5, 0.8)}"/>
+    <component p:path="${p7}" objectid="7" p:UUID="${objIdBase}0007" transform="${pipTransform(-2.5, 2.5, 0.8)}"/>`;
+        case 5:
+          return `
+    <component p:path="${p8}" objectid="9" p:UUID="${objIdBase}0009" transform="${commonTransform} 0 0 0"/>
+    <component p:path="${p7}" objectid="2" p:UUID="${objIdBase}0002" transform="${pipTransform(2.5, -2.5, 0.8)}"/>
+    <component p:path="${p7}" objectid="4" p:UUID="${objIdBase}0004" transform="${pipTransform(-2.5, -2.5, 0.8)}"/>
+    <component p:path="${p8}" objectid="10" p:UUID="${objIdBase}0010" transform="${pipTransform(0, 0, 0.8)}"/>
+    <component p:path="${p7}" objectid="5" p:UUID="${objIdBase}0005" transform="${pipTransform(2.5, 2.5, 0.8)}"/>
+    <component p:path="${p7}" objectid="7" p:UUID="${objIdBase}0007" transform="${pipTransform(-2.5, 2.5, 0.8)}"/>`;
+        case 4:
+          return `
+    <component p:path="${p9}" objectid="12" p:UUID="${objIdBase}0012" transform="${commonTransform} 0 0 0"/>
+    <component p:path="${p7}" objectid="2" p:UUID="${objIdBase}0002" transform="${pipTransform(2.5, -2.5, 0.8)}"/>
+    <component p:path="${p7}" objectid="4" p:UUID="${objIdBase}0004" transform="${pipTransform(-2.5, -2.5, 0.8)}"/>
+    <component p:path="${p7}" objectid="5" p:UUID="${objIdBase}0005" transform="${pipTransform(2.5, 2.5, 0.8)}"/>
+    <component p:path="${p7}" objectid="7" p:UUID="${objIdBase}0007" transform="${pipTransform(-2.5, 2.5, 0.8)}"/>`;
+        case 3:
+          return `
+    <component p:path="${p10}" objectid="14" p:UUID="${objIdBase}0014" transform="${commonTransform} 0 0 0"/>
+    <component p:path="${p7}" objectid="2" p:UUID="${objIdBase}0002" transform="${pipTransform(2.5, -2.5, 0.8)}"/>
+    <component p:path="${p8}" objectid="10" p:UUID="${objIdBase}0010" transform="${pipTransform(0, 0, 0.8)}"/>
+    <component p:path="${p7}" objectid="7" p:UUID="${objIdBase}0007" transform="${pipTransform(-2.5, 2.5, 0.8)}"/>`;
+        case 2:
+          return `
+    <component p:path="${p11}" objectid="16" p:UUID="${objIdBase}0016" transform="${commonTransform} 0 0 0"/>
+    <component p:path="${p7}" objectid="2" p:UUID="${objIdBase}0002" transform="${pipTransform(2.5, -2.5, 0.8)}"/>
+    <component p:path="${p7}" objectid="7" p:UUID="${objIdBase}0007" transform="${pipTransform(-2.5, 2.5, 0.8)}"/>`;
+        case 1:
+          return `
+    <component p:path="${p12}" objectid="18" p:UUID="${objIdBase}0018" transform="${commonTransform} 0 0 0"/>
+    <component p:path="${p8}" objectid="10" p:UUID="${objIdBase}0010" transform="${pipTransform(0, 0, 0.8)}"/>`;
+        default: return "";
+      }
     };
 
-    // 2. Build items and metadata
+    const getPartMeta = (face) => {
+      const getPart = (pid, name, extr, sfile, sid, x = 0, y = 0, z = 0) => {
+        const matrix = `1 0 0 ${x} 0 1 0 ${y} 0 0 1 ${z} 0 0 0 1`;
+        return `<part id="${pid}" subtype="normal_part">
+      <metadata key="name" value="${name}"/>
+      <metadata key="matrix" value="${matrix}"/>
+      <metadata key="source_file" value="${sfile}"/>
+      <metadata key="source_object_id" value="${sid}"/>
+      <metadata key="source_volume_id" value="0"/>
+      <metadata key="extruder" value="${extr}"/>
+    </part>`;
+      };
+
+      const p7 = "object_7.model";
+      const p8 = "object_8.model";
+      const p9 = "object_9.model";
+      const p10 = "object_10.model";
+      const p11 = "object_11.model";
+      const p12 = "object_12.model";
+
+      switch (face) {
+        case 6:
+          return `
+    <metadata key="name" value="6"/><metadata key="extruder" value="1"/>
+    ${getPart(1, "Body", 2, p7, 1)}
+    ${getPart(2, "Pip", 1, p7, 2, 2.5, -2.5, 0.8)}
+    ${getPart(3, "Pip", 1, p7, 3, 0, -2.5, 0.8)}
+    ${getPart(4, "Pip", 1, p7, 4, -2.5, -2.5, 0.8)}
+    ${getPart(5, "Pip", 1, p7, 5, 2.5, 2.5, 0.8)}
+    ${getPart(6, "Pip", 1, p7, 6, 0, 2.5, 0.8)}
+    ${getPart(7, "Pip", 1, p7, 7, -2.5, 2.5, 0.8)}`;
+        case 5:
+          return `
+    <metadata key="name" value="5"/><metadata key="extruder" value="1"/>
+    ${getPart(9, "Body", 2, p8, 9)}
+    ${getPart(2, "Pip", 1, p7, 2, 2.5, -2.5, 0.8)}
+    ${getPart(4, "Pip", 1, p7, 4, -2.5, -2.5, 0.8)}
+    ${getPart(10, "Pip", 1, p8, 10, 0, 0, 0.8)}
+    ${getPart(5, "Pip", 1, p7, 5, 2.5, 2.5, 0.8)}
+    ${getPart(7, "Pip", 1, p7, 7, -2.5, 2.5, 0.8)}`;
+        case 4:
+          return `
+    <metadata key="name" value="4"/><metadata key="extruder" value="1"/>
+    ${getPart(12, "Body", 2, p9, 12)}
+    ${getPart(2, "Pip", 1, p7, 2, 2.5, -2.5, 0.8)}
+    ${getPart(4, "Pip", 1, p7, 4, -2.5, -2.5, 0.8)}
+    ${getPart(5, "Pip", 1, p7, 5, 2.5, 2.5, 0.8)}
+    ${getPart(7, "Pip", 1, p7, 7, -2.5, 2.5, 0.8)}`;
+        case 3:
+          return `
+    <metadata key="name" value="3"/><metadata key="extruder" value="1"/>
+    ${getPart(14, "Body", 2, p10, 14)}
+    ${getPart(2, "Pip", 1, p7, 2, 2.5, -2.5, 0.8)}
+    ${getPart(10, "Pip", 1, p8, 10, 0, 0, 0.8)}
+    ${getPart(7, "Pip", 1, p7, 7, -2.5, 2.5, 0.8)}`;
+        case 2:
+          return `
+    <metadata key="name" value="2"/><metadata key="extruder" value="1"/>
+    ${getPart(16, "Body", 2, p11, 16)}
+    ${getPart(2, "Pip", 1, p7, 2, 2.5, -2.5, 0.8)}
+    ${getPart(7, "Pip", 1, p7, 7, -2.5, 2.5, 0.8)}`;
+        case 1:
+          return `
+    <metadata key="name" value="1"/><metadata key="extruder" value="1"/>
+    ${getPart(18, "Body", 2, p12, 18)}
+    ${getPart(10, "Pip", 1, p8, 10, 0, 0, 0.8)}`;
+        default: return "";
+      }
+    };
+
+    // 3. Main Loop: One object per die
+    let resourcesXML = "";
     let buildItemsXML = "";
     let plateInstancesXML = "";
-    let assembleXML = "";
+    let modelSettingsObjectsXML = "";
 
     const scale = diceSize / 10;
     const spacing = 0.1;
-    const objectInstanceCounters = { 8: 0, 11: 0, 13: 0, 15: 0, 17: 0, 19: 0 };
+    const offsetX = 125 - (gridWidth * (diceSize + spacing)) / 2;
+    const offsetY = 125 - (gridHeight * (diceSize + spacing)) / 2;
 
     for (let y = 0; y < gridHeight; y++) {
       for (let x = 0; x < gridWidth; x++) {
@@ -63,154 +187,51 @@ export default class Exporter3MF {
         const face = diceLevels[index];
         if (face < 1 || face > 6) continue;
 
-        const objId = dieObjectMapping[face];
-        const instId = objectInstanceCounters[objId];
-        objectInstanceCounters[objId]++;
+        const objId = 100 + index; // Start IDs from 100
+        const objIdBase = index.toString(16).padStart(8, '0');
+        const objUUID = `00000000-0000-4000-8000-${objIdBase}0000`;
 
-        // Position calculation: centering around 125,125
-        const offsetX = 125 - (gridWidth * (diceSize + spacing)) / 2;
-        const offsetY = 125 - (gridHeight * (diceSize + spacing)) / 2;
+        // Resource Entry
+        resourcesXML += `
+  <object id="${objId}" p:UUID="${objUUID}" type="model">
+   <components>${getComponentsForFace(face, objIdBase)}
+   </components>
+  </object>`;
 
+        // Build Entry
         const posX = offsetX + x * (diceSize + spacing);
         const posY = offsetY + y * (diceSize + spacing);
-        const posZ = 0;
+        // Note: PosX, PosY are in the bed coordinate system. PosZ is typically 0.
+        const transform = `${scale} 0 0 0 ${scale} 0 0 0 ${scale} ${posX} ${posY} 0`;
+        const itemUUID = `00000000-0000-4000-9000-${objIdBase}0000`;
+        buildItemsXML += `<item objectid="${objId}" p:UUID="${itemUUID}" transform="${transform}" printable="1"/>\n  `;
 
-        const transform = `${scale} 0 0 0 ${scale} 0 0 0 ${scale} ${posX} ${posY} ${posZ}`;
-        const uuid = `00000000-0000-4000-8000-${index.toString(16).padStart(12, '0')}`;
-
-        buildItemsXML += `<item objectid="${objId}" p:UUID="${uuid}" transform="${transform}" printable="1"/>\n  `;
-        // assembleXML += `<assemble_item object_id="${objId}" instance_id="${instId}" transform="${transform}" offset="0 0 0" />\n   `;
-
+        // Plate Instance Entry
         plateInstancesXML += `
     <model_instance>
       <metadata key="object_id" value="${objId}"/>
-      <metadata key="instance_id" value="${instId}"/>
-      <metadata key="identify_id" value="${20000 + index}"/>
+      <metadata key="instance_id" value="0"/>
+      <metadata key="identify_id" value="${1000 + index}"/>
     </model_instance>`;
+
+        // Model Settings Object Entry
+        modelSettingsObjectsXML += `
+  <object id="${objId}">${getPartMeta(face)}
+  </object>`;
       }
     }
 
     const modelXML = `<?xml version="1.0" encoding="UTF-8"?>
 <model unit="millimeter" xml:lang="en-US" xmlns="http://schemas.microsoft.com/3dmanufacturing/core/2015/02" xmlns:BambuStudio="http://schemas.bambulab.com/package/2021" xmlns:p="http://schemas.microsoft.com/3dmanufacturing/production/2015/06" requiredextensions="p">
- <resources>
-  <object id="8" p:UUID="00000007-61cb-4c03-9d28-80fed5dfa1dc" type="model">
-   <components>
-    <component p:path="/3D/Objects/object_7.model" objectid="1" p:UUID="00070000-b206-40ff-9872-83e8017abed1" transform="1 0 0 0 1 0 0 0 1 0 0 0"/>
-    <component p:path="/3D/Objects/object_7.model" objectid="2" p:UUID="00070001-b206-40ff-9872-83e8017abed1" transform="1 0 0 0 1 0 0 0 1 2.5 -2.5 0.8"/>
-    <component p:path="/3D/Objects/object_7.model" objectid="3" p:UUID="00070002-b206-40ff-9872-83e8017abed1" transform="1 0 0 0 1 0 0 0 1 0 -2.5 0.8"/>
-    <component p:path="/3D/Objects/object_7.model" objectid="4" p:UUID="00070003-b206-40ff-9872-83e8017abed1" transform="1 0 0 0 1 0 0 0 1 -2.5 -2.5 0.8"/>
-    <component p:path="/3D/Objects/object_7.model" objectid="5" p:UUID="00070004-b206-40ff-9872-83e8017abed1" transform="1 0 0 0 1 0 0 0 1 2.5 2.5 0.8"/>
-    <component p:path="/3D/Objects/object_7.model" objectid="6" p:UUID="00070005-b206-40ff-9872-83e8017abed1" transform="1 0 0 0 1 0 0 0 1 0 2.5 0.8"/>
-    <component p:path="/3D/Objects/object_7.model" objectid="7" p:UUID="00070006-b206-40ff-9872-83e8017abed1" transform="1 0 0 0 1 0 0 0 1 -2.5 2.5 0.8"/>
-   </components>
-  </object>
-  <object id="11" p:UUID="00000008-71cb-4c03-9d28-80fed5dfa1dc" type="model">
-   <components>
-    <component p:path="/3D/Objects/object_8.model" objectid="9" p:UUID="00080000-b206-40ff-9872-83e8017abed1" transform="1 0 0 0 1 0 0 0 1 0 0 0"/>
-    <component p:path="/3D/Objects/object_7.model" objectid="2" p:UUID="00080001-b206-40ff-9872-83e8017abed1" transform="1 0 0 0 1 0 0 0 1 2.5 -2.5 0.8"/>
-    <component p:path="/3D/Objects/object_7.model" objectid="4" p:UUID="00080002-b206-40ff-9872-83e8017abed1" transform="1 0 0 0 1 0 0 0 1 -2.5 -2.5 0.8"/>
-    <component p:path="/3D/Objects/object_8.model" objectid="10" p:UUID="00080003-b206-40ff-9872-83e8017abed1" transform="1 0 0 0 1 0 0 0 1 0 0 0.8"/>
-    <component p:path="/3D/Objects/object_7.model" objectid="5" p:UUID="00080004-b206-40ff-9872-83e8017abed1" transform="1 0 0 0 1 0 0 0 1 2.5 2.5 0.8"/>
-    <component p:path="/3D/Objects/object_7.model" objectid="7" p:UUID="00080005-b206-40ff-9872-83e8017abed1" transform="1 0 0 0 1 0 0 0 1 -2.5 2.5 0.8"/>
-   </components>
-  </object>
-  <object id="13" p:UUID="00000009-71cb-4c03-9d28-80fed5dfa1dc" type="model">
-   <components>
-    <component p:path="/3D/Objects/object_9.model" objectid="12" p:UUID="00090000-b206-40ff-9872-83e8017abed1" transform="1 0 0 0 1 0 0 0 1 0 0 0"/>
-    <component p:path="/3D/Objects/object_7.model" objectid="2" p:UUID="00090001-b206-40ff-9872-83e8017abed1" transform="1 0 0 0 1 0 0 0 1 2.5 -2.5 0.8"/>
-    <component p:path="/3D/Objects/object_7.model" objectid="4" p:UUID="00090002-b206-40ff-9872-83e8017abed1" transform="1 0 0 0 1 0 0 0 1 -2.5 -2.5 0.8"/>
-    <component p:path="/3D/Objects/object_7.model" objectid="5" p:UUID="00090003-b206-40ff-9872-83e8017abed1" transform="1 0 0 0 1 0 0 0 1 2.5 2.5 0.8"/>
-    <component p:path="/3D/Objects/object_7.model" objectid="7" p:UUID="00090004-b206-40ff-9872-83e8017abed1" transform="1 0 0 0 1 0 0 0 1 -2.5 2.5 0.8"/>
-   </components>
-  </object>
-  <object id="15" p:UUID="0000000a-71cb-4c03-9d28-80fed5dfa1dc" type="model">
-   <components>
-    <component p:path="/3D/Objects/object_10.model" objectid="14" p:UUID="000a0000-b206-40ff-9872-83e8017abed1" transform="1 0 0 0 1 0 0 0 1 0 0 0"/>
-    <component p:path="/3D/Objects/object_7.model" objectid="2" p:UUID="000a0001-b206-40ff-9872-83e8017abed1" transform="1 0 0 0 1 0 0 0 1 2.5 -2.5 0.8"/>
-    <component p:path="/3D/Objects/object_8.model" objectid="10" p:UUID="000a0002-b206-40ff-9872-83e8017abed1" transform="1 0 0 0 1 0 0 0 1 0 0 0.8"/>
-    <component p:path="/3D/Objects/object_7.model" objectid="7" p:UUID="000a0003-b206-40ff-9872-83e8017abed1" transform="1 0 0 0 1 0 0 0 1 -2.5 2.5 0.8"/>
-   </components>
-  </object>
-  <object id="17" p:UUID="0000000b-71cb-4c03-9d28-80fed5dfa1dc" type="model">
-   <components>
-    <component p:path="/3D/Objects/object_11.model" objectid="16" p:UUID="000b0000-b206-40ff-9872-83e8017abed1" transform="1 0 0 0 1 0 0 0 1 0 0 0"/>
-    <component p:path="/3D/Objects/object_7.model" objectid="2" p:UUID="000b0001-b206-40ff-9872-83e8017abed1" transform="1 0 0 0 1 0 0 0 1 2.5 -2.5 0.8"/>
-    <component p:path="/3D/Objects/object_7.model" objectid="7" p:UUID="000b0002-b206-40ff-9872-83e8017abed1" transform="1 0 0 0 1 0 0 0 1 -2.5 2.5 0.8"/>
-   </components>
-  </object>
-  <object id="19" p:UUID="0000000c-71cb-4c03-9d28-80fed5dfa1dc" type="model">
-   <components>
-    <component p:path="/3D/Objects/object_12.model" objectid="18" p:UUID="000c0000-b206-40ff-9872-83e8017abed1" transform="1 0 0 0 1 0 0 0 1 0 0 0"/>
-    <component p:path="/3D/Objects/object_8.model" objectid="10" p:UUID="000c0001-b206-40ff-9872-83e8017abed1" transform="1 0 0 0 1 0 0 0 1 0 0 0.8"/>
-   </components>
-  </object>
+ <resources>${resourcesXML}
  </resources>
  <build p:UUID="2c7c17d8-22b5-4d84-8835-1976022ea369">
   ${buildItemsXML}
  </build>
 </model>`;
 
-    zip.file("3D/3dmodel.model", modelXML);
-
-    const getPart = (id, name, extruder, sfile, sid, x = 0, y = 0, z = 0) => {
-      const matrix = `1 0 0 ${x} 0 1 0 ${y} 0 0 1 ${z} 0 0 0 1`;
-      return `<part id="${id}" subtype="normal_part">
-      <metadata key="name" value="${name}"/>
-      <metadata key="matrix" value="${matrix}"/>
-      <metadata key="source_file" value="${sfile}"/>
-      <metadata key="source_object_id" value="${sid}"/>
-      <metadata key="source_volume_id" value="0"/>
-      <metadata key="extruder" value="${extruder}"/>
-    </part>`;
-    };
-
     const modelSettingsXML = `<?xml version="1.0" encoding="UTF-8"?>
-<config>
-  <object id="8">
-    <metadata key="name" value="6"/><metadata key="extruder" value="1"/>
-    ${getPart(1, "Body", 2, "object_7.model", 0)}
-    ${getPart(2, "Pip", 1, "object_7.model", 1, 2.5, -2.5, 0.8)}
-    ${getPart(3, "Pip", 1, "object_7.model", 2, 0, -2.5, 0.8)}
-    ${getPart(4, "Pip", 1, "object_7.model", 3, -2.5, -2.5, 0.8)}
-    ${getPart(5, "Pip", 1, "object_7.model", 4, 2.5, 2.5, 0.8)}
-    ${getPart(6, "Pip", 1, "object_7.model", 5, 0, 2.5, 0.8)}
-    ${getPart(7, "Pip", 1, "object_7.model", 6, -2.5, 2.5, 0.8)}
-  </object>
-  <object id="11">
-    <metadata key="name" value="5"/><metadata key="extruder" value="1"/>
-    ${getPart(9, "Body", 2, "object_8.model", 0)}
-    ${getPart(2, "Pip", 1, "object_7.model", 1, 2.5, -2.5, 0.8)}
-    ${getPart(4, "Pip", 1, "object_7.model", 3, -2.5, -2.5, 0.8)}
-    ${getPart(10, "Pip", 1, "object_8.model", 1, 0, 0, 0.8)}
-    ${getPart(5, "Pip", 1, "object_7.model", 4, 2.5, 2.5, 0.8)}
-    ${getPart(7, "Pip", 1, "object_7.model", 6, -2.5, 2.5, 0.8)}
-  </object>
-  <object id="13">
-    <metadata key="name" value="4"/><metadata key="extruder" value="1"/>
-    ${getPart(12, "Body", 2, "object_9.model", 0)}
-    ${getPart(2, "Pip", 1, "object_7.model", 1, 2.5, -2.5, 0.8)}
-    ${getPart(4, "Pip", 1, "object_7.model", 3, -2.5, -2.5, 0.8)}
-    ${getPart(5, "Pip", 1, "object_7.model", 4, 2.5, 2.5, 0.8)}
-    ${getPart(7, "Pip", 1, "object_7.model", 6, -2.5, 2.5, 0.8)}
-  </object>
-  <object id="15">
-    <metadata key="name" value="3"/><metadata key="extruder" value="1"/>
-    ${getPart(14, "Body", 2, "object_10.model", 0)}
-    ${getPart(2, "Pip", 1, "object_7.model", 1, 2.5, -2.5, 0.8)}
-    ${getPart(10, "Pip", 1, "object_8.model", 1, 0, 0, 0.8)}
-    ${getPart(7, "Pip", 1, "object_7.model", 6, -2.5, 2.5, 0.8)}
-  </object>
-  <object id="17">
-    <metadata key="name" value="2"/><metadata key="extruder" value="1"/>
-    ${getPart(16, "Body", 2, "object_11.model", 0)}
-    ${getPart(2, "Pip", 1, "object_7.model", 1, 2.5, -2.5, 0.8)}
-    ${getPart(7, "Pip", 1, "object_7.model", 6, -2.5, 2.5, 0.8)}
-  </object>
-  <object id="19">
-    <metadata key="name" value="1"/><metadata key="extruder" value="1"/>
-    ${getPart(18, "Body", 2, "object_12.model", 0)}
-    ${getPart(10, "Pip", 1, "object_8.model", 1, 0, 0, 0.8)}
-  </object>
+<config>${modelSettingsObjectsXML}
   <plate>
     <metadata key="plater_id" value="1"/>
     <metadata key="plater_name" value="Dice-Art"/>
@@ -222,12 +243,13 @@ export default class Exporter3MF {
   </plate>
 </config>`;
 
+    zip.file("3D/3dmodel.model", modelXML);
     zip.file("Metadata/model_settings.config", modelSettingsXML);
 
     const content = await zip.generateAsync({
       type: "blob",
       compression: "DEFLATE",
-      compressionOptions: { level: 9 }
+      compressionOptions: { level: 6 } // Balanced compression
     });
     return content;
   }
