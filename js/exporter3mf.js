@@ -6,7 +6,7 @@ export default class Exporter3MF {
     }
 
     async generate3MF(diceLevels, gridWidth, gridHeight) {
-        console.log("Generating multi-plate 3MF project...");
+        console.log("Generating production multi-plate 3MF project...");
 
         const zip = new JSZip();
 
@@ -46,7 +46,6 @@ export default class Exporter3MF {
         await Promise.all(fetchPromises);
 
         // 2. Logic: Group dice by face (1-6)
-        // CRITICAL FIX: ImageProcessor.js returns values 1 to 6.
         const counts = new Array(7).fill(0);
         diceLevels.forEach(lvl => {
             if (lvl >= 1 && lvl <= 6) {
@@ -90,9 +89,18 @@ export default class Exporter3MF {
         let assembleXML = "";
         const objectInstanceCounters = { 8: 0, 11: 0, 13: 0, 15: 0, 17: 0, 19: 0 };
 
+        // Configuration for plate layout
+        const plateSpacingX = 250; // Horizontal spacing between plates in 3D space
+        const plateSpacingY = 250;
+        const platesPerRow = 3;
+
         optimizedPlates.forEach((plate, pIdx) => {
             const platerId = pIdx + 1;
             let plateInstancesXML = "";
+
+            // Plate origin in world space to avoid overlapping
+            const plateOriginX = (pIdx % platesPerRow) * plateSpacingX;
+            const plateOriginY = Math.floor(pIdx / platesPerRow) * plateSpacingY;
 
             const cols = 10;
             const size = 10;
@@ -105,13 +113,18 @@ export default class Exporter3MF {
 
                 const col = i % cols;
                 const row = Math.floor(i / cols);
-                const x = 50 + col * (size + spacing);
-                const y = 50 + row * (size + spacing);
-                const transform = `1 0 0 0 1 0 0 0 1 ${x} ${y} 1`;
+
+                // Position relative to plate origin
+                const x = plateOriginX + col * (size + spacing);
+                const y = plateOriginY + row * (size + spacing);
+                const z = 1;
+
+                const transform = `1 0 0 0 1 0 0 0 1 ${x} ${y} ${z}`;
                 const uuid = `00000000-0000-4000-8000-${platerId.toString(16).padStart(4, '0')}${i.toString(16).padStart(8, '0')}`;
 
                 buildItemsXML += `<item objectid="${objId}" p:UUID="${uuid}" transform="${transform}" printable="1"/>\n  `;
                 assembleXML += `<assemble_item object_id="${objId}" instance_id="${instId}" transform="${transform}" offset="0 0 0" />\n   `;
+
                 plateInstancesXML += `
     <model_instance>
       <metadata key="object_id" value="${objId}"/>
@@ -131,7 +144,7 @@ export default class Exporter3MF {
   </plate>\n`;
         });
 
-        // 4. Detailed Object Resources for 3dmodel.model
+        // 4. Detailed Object Resources (Fixed hierarchy for pips rendering)
         const masterModel = `<?xml version="1.0" encoding="UTF-8"?>
 <model unit="millimeter" xml:lang="en-US" xmlns="http://schemas.microsoft.com/3dmanufacturing/core/2015/02" xmlns:BambuStudio="http://schemas.bambulab.com/package/2021" xmlns:p="http://schemas.microsoft.com/3dmanufacturing/production/2015/06" requiredextensions="p">
  <resources>
@@ -194,8 +207,7 @@ export default class Exporter3MF {
 
         zip.file("3D/3dmodel.model", masterModel);
 
-        // 5. Construct Metadata/model_settings.config with full PART info
-        // This ensures pips render correctly (Bambu Studio "masks")
+        // 5. Construct Metadata/model_settings.config
         const modelSettingsXML = `<?xml version="1.0" encoding="UTF-8"?>
 <config>
   <object id="8">
