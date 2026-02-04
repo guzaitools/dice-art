@@ -3,7 +3,7 @@ import DiceRenderer from './js/diceRenderer.js';
 import PDFExporter from './js/pdfExporter.js';
 import Exporter3MF from './js/exporter3mf.js';
 import ExporterSCAD from './js/scadExporter.js';
-import Preview3D from './js/preview3d.js';
+import ExporterSCAD from './js/scadExporter.js';
 
 /**
  * Main Application Controller
@@ -16,7 +16,6 @@ const diceRenderer = new DiceRenderer();
 const pdfExporter = new PDFExporter();
 const exporter3mf = new Exporter3MF();
 const scadExporter = new ExporterSCAD();
-const preview3d = new Preview3D('threeContainer');
 
 // Last processing result for export
 let lastResult = null;
@@ -287,9 +286,6 @@ const downloadPdfBtn = document.getElementById('downloadPdfBtn');
 const exportMultiPlateBtn = document.getElementById('exportMultiPlateBtn');
 const export3dPrintBtn = document.getElementById('export3dPrintBtn');
 const downloadScadBtn = document.getElementById('downloadScadBtn');
-const openPreview3dBtn = document.getElementById('openPreview3dBtn');
-const preview3dModal = document.getElementById('preview3dModal');
-const closePreviewBtn = document.getElementById('closePreviewBtn');
 
 function setupColorSelector(containerId, settingKey) {
   const buttons = document.querySelectorAll(`#${containerId} button`);
@@ -348,13 +344,13 @@ downloadPdfBtn.addEventListener('click', async () => {
   }
 });
 
-// Multi-Plate 3MF Export Handler
+// Multi-Plate 3MF Export Handler (10x10 Modules)
 exportMultiPlateBtn.addEventListener('click', async () => {
   if (!lastResult) return;
 
   exportMultiPlateBtn.disabled = true;
   const originalHtml = exportMultiPlateBtn.innerHTML;
-  exportMultiPlateBtn.innerHTML = '<i data-lucide="sync" class="w-4 h-4 animate-spin"></i><span class="text-[10px] font-bold pr-1">SYNCING...</span>';
+  exportMultiPlateBtn.innerHTML = '<i data-lucide="sync" class="w-4 h-4 animate-spin"></i><span class="text-[10px] font-bold pr-1">GROUPING...</span>';
   lucide.createIcons();
 
   try {
@@ -364,10 +360,10 @@ exportMultiPlateBtn.addEventListener('click', async () => {
       lastResult.gridHeight,
       currentSettings.diceSize
     );
-    exporter3mf.saveFile(blob, `dice-art-multi-plate-${currentSettings.diceSize}mm.3mf`);
+    exporter3mf.saveFile(blob, `dice-art-multi-plate-10x10-${currentSettings.diceSize}mm.3mf`);
   } catch (error) {
     console.error('Error exporting Multi-Plate:', error);
-    alert('Error generating Multi-Plate export.');
+    alert('Error generating Grouped Multi-Plate export.');
   } finally {
     exportMultiPlateBtn.disabled = false;
     exportMultiPlateBtn.innerHTML = originalHtml;
@@ -532,26 +528,6 @@ function debounceProcess() {
     saveSettings();
   }, 300);
 }
-
-// 3D Preview Handlers
-openPreview3dBtn.addEventListener('click', async () => {
-  if (!lastResult) return;
-  preview3dModal.classList.remove('hidden');
-  appHeader.style.display = 'none'; // Hide header to focus on 3D
-  await preview3d.init();
-  preview3d.update(
-    lastResult.diceLevels,
-    lastResult.gridWidth,
-    lastResult.gridHeight,
-    currentSettings.diceSize,
-    true // always use spacing for preview
-  );
-});
-
-closePreviewBtn.addEventListener('click', () => {
-  preview3dModal.classList.add('hidden');
-  appHeader.style.display = 'block';
-});
 
 // Initialize app when DOM is ready
 if (document.readyState === 'loading') {

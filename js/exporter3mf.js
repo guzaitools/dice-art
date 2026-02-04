@@ -178,11 +178,170 @@ export default class Exporter3MF {
     return blob;
   }
 
-  async generateMultiPlate3MF(diceLevels, gridWidth, gridHeight, diceSize = 10) {
-    console.log("Generating Original Multi-Plate 3MF (Platos)...");
-    // We'll reuse the single plate tech but with traditional non-merged settings if asked,
-    // though the current merged tech is superior. We'll mark it as "Original" in UI.
-    return this.generateSinglePlate3MF(diceLevels, gridWidth, gridHeight, diceSize, { primeTower: true, raft: false, spacing: true });
+  async generateMultiPlate3MF(diceLevels, gridWidth, gridHeight, diceSize = 10, options = { primeTower: false, raft: true, spacing: true }) {
+    console.time('Multi-Plate-Generation');
+    console.log(`Generating Multi-Plate 3MF (10x10 Grouping, ${diceSize}mm)...`);
+    const zip = new JSZip();
+
+    // 1. Fetch template
+    const templateFiles = ["3D/Objects/object_7.model", "3D/Objects/object_8.model", "3D/Objects/object_9.model", "3D/Objects/object_10.model", "3D/Objects/object_11.model", "3D/Objects/object_12.model", "Metadata/project_settings.config"];
+    const modelModels = {};
+    await Promise.all(templateFiles.map(async (f) => {
+      const res = await fetch(`${this.templatePath}${f}`);
+      if (res.ok) modelModels[f] = await res.text();
+    }));
+
+    const splitModelGeometries = (xml) => {
+      const objects = {};
+      const objBlocks = xml.split(/<object/);
+      objBlocks.shift();
+      for (const block of objBlocks) {
+        const idMatch = block.match(/id="([^"]+)"/);
+        if (idMatch) {
+          const v = [], t = [];
+          const vRegex = /<vertex\s+x="([^"]+)"\s+y="([^"]+)"\s+z="([^"]+)"/g, tRegex = /<triangle\s+v1="([^"]+)"\s+v2="([^"]+)"\s+v3="([^"]+)"/g;
+          let m;
+          while ((m = vRegex.exec(block)) !== null) v.push({ x: parseFloat(m[1]), y: parseFloat(m[2]), z: parseFloat(m[3]) });
+          while ((m = tRegex.exec(block)) !== null) t.push({ v1: parseInt(m[1]), v2: parseInt(m[2]), v3: parseInt(m[3]) });
+          objects[idMatch[1]] = { vertices: v, triangles: t };
+        }
+      }
+      return objects;
+    };
+
+    const geometries = {};
+    for (let f = 7; f <= 12; f++) {
+      const path = `3D/Objects/object_${f}.model`;
+      if (modelModels[path]) geometries[f] = splitModelGeometries(modelModels[path]);
+    }
+
+    // 2. Partition Grid into 10x10 modules
+    const MODULE_SIZE = 10;
+    const modulesX = Math.ceil(gridWidth / MODULE_SIZE);
+    const modulesY = Math.ceil(gridHeight / MODULE_SIZE);
+
+    let resourcesXML = '';
+    let buildXML = '';
+    let platesXML = '';
+
+    const s = diceSize / 10;
+    const step = diceSize + (options.spacing ? 0.4 : 0);
+
+    let objectIdCounter = 1;
+    const plateConfigs = [];
+
+    for (let my = 0; my < modulesY; my++) {
+      for (let mx = 0; mx < modulesX; mx++) {
+        const bodyV = [], bodyT = [], pipV = [], pipT = [];
+        const addMesh = (targetV, targetT, mesh, dx, dy, dz, s) => {
+          if (!mesh) return;
+          const offset = targetV.length;
+          for (const v of mesh.vertices) targetV.push({ x: v.x * s + dx, y: v.y * s + dy, z: v.z * s + dz });
+          for (const t of mesh.triangles) targetT.push({ v1: t.v1 + offset, v2: t.v2 + offset, v3: t.v3 + offset });
+        };
+
+        // Local center for the 10x10 module on a 250x250 bed
+        const moduleWidth = Math.min(MODULE_SIZE, gridWidth - mx * MODULE_SIZE);
+        const moduleHeight = Math.min(MODULE_SIZE, gridHeight - my * MODULE_SIZE);
+        const lox = 125 - (moduleWidth * step) / 2;
+        const loy_top = 125 + (moduleHeight * step) / 2;
+
+        for (let ly = 0; ly < moduleHeight; ly++) {
+          for (let lx = 0; lx < moduleWidth; lx++) {
+            const gx = mx * MODULE_SIZE + lx;
+            const gy = my * MODULE_SIZE + ly;
+            const face = diceLevels[gy * gridWidth + gx];
+            if (face < 1 || face > 6) continue;
+
+            const px = lox + lx * step;
+            const py = loy_top - (ly + 1) * step;
+
+            let bm;
+            switch (face) {
+              case 6: bm = geometries[7]["1"]; break;
+              case 5: bm = geometries[8]["9"]; break;
+              case 4: bm = geometries[9]["12"]; break;
+              case 3: bm = geometries[10]["14"]; break;
+              case 2: bm = geometries[11]["16"]; break;
+              case 1: bm = geometries[12]["18"]; break;
+            }
+            addMesh(bodyV, bodyT, bm, px, py, 0, s);
+
+            const addP = (g, o, dx, dy) => addMesh(pipV, pipT, geometries[g][o], px + dx * s, py + dy * s, 0.8 * s, s);
+            switch (face) {
+              case 6: addP(7, "2", 2.5, -2.5); addP(7, "3", 0, -2.5); addP(7, "4", -2.5, -2.5); addP(7, "5", 2.5, 2.5); addP(7, "6", 0, 2.5); addP(7, "7", -2.5, 2.5); break;
+              case 5: addP(7, "2", 2.5, -2.5); addP(7, "4", -2.5, -2.5); addP(8, "10", 0, 0); addP(7, "5", 2.5, 2.5); addP(7, "7", -2.5, 2.5); break;
+              case 4: addP(7, "2", 2.5, -2.5); addP(7, "4", -2.5, -2.5); addP(7, "5", 2.5, 2.5); addP(7, "7", -2.5, 2.5); break;
+              case 3: addP(7, "2", 2.5, -2.5); addP(8, "10", 0, 0); addP(7, "7", -2.5, 2.5); break;
+              case 2: addP(7, "2", 2.5, -2.5); addP(7, "7", -2.5, 2.5); break;
+              case 1: addP(8, "10", 0, 0); break;
+            }
+          }
+        }
+
+        if (bodyV.length === 0) continue;
+
+        const serialize = (v, t) => {
+          let xml = '<mesh><vertices>\n';
+          for (const p of v) xml += `<vertex x="${p.x.toFixed(4)}" y="${p.y.toFixed(4)}" z="${p.z.toFixed(4)}"/>\n`;
+          xml += '</vertices><triangles>\n';
+          for (const f of t) xml += `<triangle v1="${f.v1}" v2="${f.v2}" v3="${f.v3}"/>\n`;
+          xml += '</triangles></mesh>';
+          return xml;
+        };
+
+        const bodyId = objectIdCounter++;
+        const pipId = objectIdCounter++;
+        const componentId = objectIdCounter++;
+        const plateId = plateConfigs.length + 1;
+        const reminder = `R${my + 1}-C${mx + 1}`;
+
+        resourcesXML += `  <object id="${bodyId}" type="model" name="Bodies-${reminder}">${serialize(bodyV, bodyT)}</object>\n`;
+        resourcesXML += `  <object id="${pipId}" type="model" name="Pips-${reminder}">${serialize(pipV, pipT)}</object>\n`;
+        resourcesXML += `  <object id="${componentId}" type="model" name="Module-${reminder}">\n   <components>\n    <component objectid="${bodyId}" transform="1 0 0 0 1 0 0 0 1 0 0 0"/>\n    <component objectid="${pipId}" transform="1 0 0 0 1 0 0 0 1 0 0 0"/>\n   </components>\n  </object>\n`;
+
+        buildXML += `  <item objectid="${componentId}"/>\n`;
+        platesXML += `  <plate><metadata key="plater_id" value="${plateId}"/><model_instance><metadata key="object_id" value="${componentId}"/><metadata key="instance_id" value="0"/></model_instance></plate>\n`;
+
+        plateConfigs.push({ componentId, reminder, plateId });
+      }
+    }
+
+    const modelXML = `<?xml version="1.0" encoding="UTF-8"?>
+<model unit="millimeter" xml:lang="en-US" xmlns="http://schemas.microsoft.com/3dmanufacturing/core/2015/02" xmlns:BambuStudio="http://schemas.bambulab.com/package/2021">
+ <metadata name="BambuStudio:3mfVersion">1</metadata>
+ <resources>
+${resourcesXML} </resources>
+ <build>
+${buildXML} </build>
+</model>`;
+
+    let projectSettings = modelModels["Metadata/project_settings.config"] || "";
+    if (projectSettings) {
+      projectSettings = projectSettings.replace(/"enable_prime_tower":\s*"[^"]*"/g, `"enable_prime_tower": "${options.primeTower ? '1' : '0'}"`);
+      projectSettings = projectSettings.replace(/"raft_layers":\s*"[^"]*"/g, `"raft_layers": "${options.raft ? '2' : '0'}"`);
+    }
+
+    const modelSettingsXML = `<?xml version="1.0" encoding="UTF-8"?>
+<config>
+${plateConfigs.map(p => `  <object id="${p.componentId}"><metadata key="name" value="Module-${p.reminder}"/>
+    <part id="1" subtype="normal_part"><metadata key="name" value="Bodies"/><metadata key="extruder" value="2"/></part>
+    <part id="2" subtype="normal_part"><metadata key="name" value="Pips"/><metadata key="extruder" value="1"/></part>
+  </object>`).join('\n')}
+${platesXML}</config>`;
+
+    const contentTypesXML = `<?xml version="1.0" encoding="UTF-8"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="model" ContentType="application/vnd.ms-package.3dmanufacturing-3dmodel+xml"/><Default Extension="config" ContentType="application/vnd.ms-package.3dmanufacturing-config+xml"/></Types>`;
+    const relsXML = `<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Target="/3D/3dmodel.model" Id="rel1" Type="http://schemas.microsoft.com/3dmanufacturing/2013/01/3dmodel"/><Relationship Target="/Metadata/model_settings.config" Id="rel2" Type="http://schemas.bambulab.com/package/2021/config"/><Relationship Target="/Metadata/project_settings.config" Id="rel3" Type="http://schemas.bambulab.com/package/2021/config"/></Relationships>`;
+
+    zip.file("[Content_Types].xml", contentTypesXML);
+    zip.file("_rels/.rels", relsXML);
+    zip.file("3D/3dmodel.model", modelXML);
+    zip.file("Metadata/model_settings.config", modelSettingsXML);
+    if (projectSettings) zip.file("Metadata/project_settings.config", projectSettings);
+
+    const blob = await zip.generateAsync({ type: "blob" });
+    console.timeEnd('Multi-Plate-Generation');
+    return blob;
   }
 
   saveFile(blob, filename) {

@@ -260,15 +260,6 @@
     </section>
 
     <section id="processingSection" class="hidden w-full flex flex-col items-center animate-fade-in relative">
-      <!-- 3D Preview Button (Margen Superior) -->
-      <div class="absolute top-0 right-6 z-[100] translate-y-[-120%]">
-        <button id="openPreview3dBtn"
-          class="px-6 py-2.5 bg-white/5 backdrop-blur-xl border border-white/10 rounded-full text-[10px] font-bold uppercase tracking-widest hover:bg-white/10 hover:border-white/20 transition-all flex items-center gap-3 group">
-          <i data-lucide="box" class="w-4 h-4 text-primary group-hover:rotate-12 transition-transform"></i>
-          3D Preview
-        </button>
-      </div>
-
       <div class="w-full relative flex flex-col gap-8">
 
         <div class="comparison-slider-container">
@@ -508,39 +499,6 @@
 
       </div>
     </div>
-    </div>
-
-    <!-- 3D Preview Modal -->
-    <div id="preview3dModal" class="fixed inset-0 z-[400] flex items-center justify-center hidden bg-black/95">
-      <div id="threeContainer" class="absolute inset-0"></div>
-
-      <div class="absolute top-10 left-10 flex flex-col">
-        <h2 class="text-4xl font-light tracking-widest uppercase">3D Preview</h2>
-        <p class="text-[9px] text-primary font-black tracking-[0.8em] mt-2">DICE-ART ENGINE V2</p>
-      </div>
-
-      <div
-        class="absolute bottom-10 left-1/2 -translate-x-1/2 flex items-center gap-10 glass-panel px-10 py-4 rounded-full border-white/10">
-        <div class="flex flex-col items-center">
-          <span class="text-[8px] opacity-40 uppercase font-black mb-1">Rotate</span>
-          <span class="text-xs">Left Mouse</span>
-        </div>
-        <div class="w-px h-6 bg-white/10"></div>
-        <div class="flex flex-col items-center">
-          <span class="text-[8px] opacity-40 uppercase font-black mb-1">Zoom</span>
-          <span class="text-xs">Scroll</span>
-        </div>
-        <div class="w-px h-6 bg-white/10"></div>
-        <div class="flex flex-col items-center">
-          <span class="text-[8px] opacity-40 uppercase font-black mb-1">Pan</span>
-          <span class="text-xs">Right Mouse</span>
-        </div>
-      </div>
-
-      <button id="closePreviewBtn"
-        class="absolute top-10 right-10 w-16 h-16 glass-panel rounded-full flex items-center justify-center hover:bg-white/10 transition-all">
-        <i data-lucide="x" class="w-6 h-6"></i>
-      </button>
     </div>
 
     <section id="examplesSection" class="w-full mt-24">
