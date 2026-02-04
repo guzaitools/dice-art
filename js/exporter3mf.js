@@ -6,7 +6,7 @@ export default class Exporter3MF {
   }
 
   async generateSinglePlate3MF(diceLevels, gridWidth, gridHeight, diceSize = 10) {
-    console.log(`Generating robust 3MF (${diceSize}mm)...`);
+    console.log(`Generating robust 3MF with full metadata parity (${diceSize}mm)...`);
     const zip = new JSZip();
 
     // 1. Fetch template assets
@@ -149,52 +149,65 @@ export default class Exporter3MF {
 
     zip.file("3D/3dmodel.model", modelXML);
 
+    // Help-function to generate part metadata with matrix
+    const getPart = (id, name, extruder, x = 0, y = 0, z = 0) => {
+      const matrix = `1 0 0 ${x} 0 1 0 ${y} 0 0 1 ${z} 0 0 0 1`;
+      return `<part id="${id}" subtype="normal_part">
+      <metadata key="name" value="${name}"/>
+      <metadata key="matrix" value="${matrix}"/>
+      <metadata key="source_file" value="dice-art.3mf"/>
+      <metadata key="source_object_id" value="0"/>
+      <metadata key="source_volume_id" value="0"/>
+      <metadata key="extruder" value="${extruder}"/>
+    </part>`;
+    };
+
     const modelSettingsXML = `<?xml version="1.0" encoding="UTF-8"?>
 <config>
   <object id="8">
     <metadata key="name" value="6"/><metadata key="extruder" value="1"/>
-    <part id="1" subtype="normal_part"><metadata key="name" value="Body"/><metadata key="extruder" value="2"/></part>
-    <part id="2" subtype="normal_part"><metadata key="name" value="Pip"/><metadata key="extruder" value="1"/></part>
-    <part id="3" subtype="normal_part"><metadata key="name" value="Pip"/><metadata key="extruder" value="1"/></part>
-    <part id="4" subtype="normal_part"><metadata key="name" value="Pip"/><metadata key="extruder" value="1"/></part>
-    <part id="5" subtype="normal_part"><metadata key="name" value="Pip"/><metadata key="extruder" value="1"/></part>
-    <part id="6" subtype="normal_part"><metadata key="name" value="Pip"/><metadata key="extruder" value="1"/></part>
-    <part id="7" subtype="normal_part"><metadata key="name" value="Pip"/><metadata key="extruder" value="1"/></part>
+    ${getPart(1, "Body", 2)}
+    ${getPart(2, "Pip", 1, 2.5, -2.5, 0.8)}
+    ${getPart(3, "Pip", 1, 0, -2.5, 0.8)}
+    ${getPart(4, "Pip", 1, -2.5, -2.5, 0.8)}
+    ${getPart(5, "Pip", 1, 2.5, 2.5, 0.8)}
+    ${getPart(6, "Pip", 1, 0, 2.5, 0.8)}
+    ${getPart(7, "Pip", 1, -2.5, 2.5, 0.8)}
   </object>
   <object id="11">
     <metadata key="name" value="5"/><metadata key="extruder" value="1"/>
-    <part id="9" subtype="normal_part"><metadata key="name" value="Body"/><metadata key="extruder" value="2"/></part>
-    <part id="2" subtype="normal_part"><metadata key="name" value="Pip"/><metadata key="extruder" value="1"/></part>
-    <part id="4" subtype="normal_part"><metadata key="name" value="Pip"/><metadata key="extruder" value="1"/></part>
-    <part id="10" subtype="normal_part"><metadata key="name" value="Pip"/><metadata key="extruder" value="1"/></part>
-    <part id="5" subtype="normal_part"><metadata key="name" value="Pip"/><metadata key="extruder" value="1"/></part>
-    <part id="7" subtype="normal_part"><metadata key="name" value="Pip"/><metadata key="extruder" value="1"/></part>
+    ${getPart(9, "Body", 2)}
+    ${getPart(2, "Pip", 1, 2.5, -2.5, 0.8)}
+    ${getPart(4, "Pip", 1, -2.5, -2.5, 0.8)}
+    ${getPart(10, "Pip", 1, 0, 0, 0.8)}
+    ${getPart(5, "Pip", 1, 2.5, 2.5, 0.8)}
+    ${getPart(7, "Pip", 1, -2.5, 2.5, 0.8)}
   </object>
   <object id="13">
     <metadata key="name" value="4"/><metadata key="extruder" value="1"/>
-    <part id="12" subtype="normal_part"><metadata key="name" value="Body"/><metadata key="extruder" value="2"/></part>
-    <part id="2" subtype="normal_part"><metadata key="name" value="Pip"/><metadata key="extruder" value="1"/></part>
-    <part id="4" subtype="normal_part"><metadata key="name" value="Pip"/><metadata key="extruder" value="1"/></part>
-    <part id="5" subtype="normal_part"><metadata key="name" value="Pip"/><metadata key="extruder" value="1"/></part>
-    <part id="7" subtype="normal_part"><metadata key="name" value="Pip"/><metadata key="extruder" value="1"/></part>
+    ${getPart(12, "Body", 2)}
+    ${getPart(2, "Pip", 1, 2.5, -2.5, 0.8)}
+    ${getPart(4, "Pip", 1, -2.5, -2.5, 0.8)}
+    ${getPart(5, "Pip", 1, 2.5, 2.5, 0.8)}
+    ${getPart(7, "Pip", 1, -2.5, 2.5, 0.8)}
   </object>
   <object id="15">
     <metadata key="name" value="3"/><metadata key="extruder" value="1"/>
-    <part id="14" subtype="normal_part"><metadata key="name" value="Body"/><metadata key="extruder" value="2"/></part>
-    <part id="2" subtype="normal_part"><metadata key="name" value="Pip"/><metadata key="extruder" value="1"/></part>
-    <part id="10" subtype="normal_part"><metadata key="name" value="Pip"/><metadata key="extruder" value="1"/></part>
-    <part id="7" subtype="normal_part"><metadata key="name" value="Pip"/><metadata key="extruder" value="1"/></part>
+    ${getPart(14, "Body", 2)}
+    ${getPart(2, "Pip", 1, 2.5, -2.5, 0.8)}
+    ${getPart(10, "Pip", 1, 0, 0, 0.8)}
+    ${getPart(7, "Pip", 1, -2.5, 2.5, 0.8)}
   </object>
   <object id="17">
     <metadata key="name" value="2"/><metadata key="extruder" value="1"/>
-    <part id="16" subtype="normal_part"><metadata key="name" value="Body"/><metadata key="extruder" value="2"/></part>
-    <part id="2" subtype="normal_part"><metadata key="name" value="Pip"/><metadata key="extruder" value="1"/></part>
-    <part id="7" subtype="normal_part"><metadata key="name" value="Pip"/><metadata key="extruder" value="1"/></part>
+    ${getPart(16, "Body", 2)}
+    ${getPart(2, "Pip", 1, 2.5, -2.5, 0.8)}
+    ${getPart(7, "Pip", 1, -2.5, 2.5, 0.8)}
   </object>
   <object id="19">
     <metadata key="name" value="1"/><metadata key="extruder" value="1"/>
-    <part id="18" subtype="normal_part"><metadata key="name" value="Body"/><metadata key="extruder" value="2"/></part>
-    <part id="10" subtype="normal_part"><metadata key="name" value="Pip"/><metadata key="extruder" value="1"/></part>
+    ${getPart(18, "Body", 2)}
+    ${getPart(10, "Pip", 1, 0, 0, 0.8)}
   </object>
   <plate>
     <metadata key="plater_id" value="1"/>
