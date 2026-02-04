@@ -139,25 +139,25 @@ export default class Exporter3MF {
     generateBuildItems(diceLevels, gridWidth, gridHeight, dieMapping) {
         let itemsXML = "";
         const diceSize = 10;
-        const spacing = 0; // Reference seems to use exact positioning
+        const spacing = 2; // Add some spacing between the samples
 
-        for (let row = 0; row < gridHeight; row++) {
-            for (let col = 0; col < gridWidth; col++) {
-                const levelIdx = row * gridWidth + col;
-                const dieLevel = diceLevels[levelIdx] + 1;
-                const objectId = dieMapping[dieLevel];
+        // Find unique die levels present in the current result
+        const uniqueLevels = [...new Set(diceLevels)].sort((a, b) => a - b);
 
-                // Centering slightly on a presumed 256x256 plate
-                const x = 50 + col * (diceSize + spacing);
-                const y = 50 + row * (diceSize + spacing);
-                const z = 1;
+        uniqueLevels.forEach((level, index) => {
+            const dieLevel = level + 1; // 1 to 6
+            const objectId = dieMapping[dieLevel];
 
-                const uuid = `00000000-0000-4000-8000-${levelIdx.toString(16).padStart(12, '0')}`;
-                const transform = `1 0 0 0 1 0 0 0 1 ${x} ${y} ${z}`;
+            // Arrange them in a row for the sample set
+            const x = 90 + index * (diceSize + spacing);
+            const y = 90;
+            const z = 1;
 
-                itemsXML += `<item objectid="${objectId}" p:UUID="${uuid}" transform="${transform}" printable="1"/>\n  `;
-            }
-        }
+            const uuid = `00000000-0000-4000-8000-${index.toString(16).padStart(12, '0')}`;
+            const transform = `1 0 0 0 1 0 0 0 1 ${x} ${y} ${z}`;
+
+            itemsXML += `<item objectid="${objectId}" p:UUID="${uuid}" transform="${transform}" printable="1"/>\n  `;
+        });
         return itemsXML;
     }
 
