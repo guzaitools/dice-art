@@ -15,7 +15,10 @@
   <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&amp;display=swap"
     rel="stylesheet" />
+  <!-- Icons & 3D Engine -->
   <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/0.160.0/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/examples/js/controls/OrbitControls.js"></script>
 
   <script id="tailwind-config">
     tailwind.config = {
@@ -261,7 +264,16 @@
         <div class="comparison-slider-container">
           <input type="range" id="comparisonSlider" min="0" max="100" value="50" class="comparison-input" />
           <div class="dice-wrapper">
-            <canvas id="diceCanvas" class="max-w-full max-h-full rounded-2xl"></canvas>
+            <canvas id="diceCanvas" class="w-full h-auto"></canvas>
+
+            <!-- 3D Preview Trigger -->
+            <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
+              <button id="openPreview3dBtn"
+                class="pointer-events-auto px-6 py-3 bg-white/10 backdrop-blur-xl border border-white/20 rounded-full text-[9px] font-black uppercase tracking-[0.4em] hover:bg-primary transition-all shadow-[0_0_30px_rgba(0,0,0,0.5)] flex items-center gap-3 group translate-y-[-150%]">
+                <i data-lucide="box" class="w-4 h-4 group-hover:rotate-12 transition-transform"></i>
+                3D Preview
+              </button>
+            </div>
           </div>
           <div class="original-wrapper">
             <canvas id="originalCanvas" class="max-w-full max-h-full rounded-2xl"></canvas>
@@ -291,17 +303,21 @@
 
             <div class="flex flex-col items-end gap-2">
               <span class="text-[10px] tracking-[0.4em] text-primary uppercase font-black font-bold">Export</span>
-              <div class="flex gap-3">
-                <button id="downloadPdfBtn" title="Export as PDF"
+              <div class="flex items-center gap-3">
+                <button id="downloadPdfBtn" title="Download PDF Instructions"
                   class="p-2 bg-white/5 border border-white/10 rounded-xl hover:bg-white/10 hover:border-white/20 transition-all text-white flex items-center gap-2 group">
-                  <span
-                    class="material-symbols-outlined text-lg group-hover:text-primary transition-colors">description</span>
+                  <i data-lucide="description" class="w-4 h-4 text-cyan-vibe"></i>
                   <span class="text-[10px] font-bold pr-1">PDF</span>
                 </button>
-                <button id="export3dPrintBtn" title="Export 3D Print (Single Plate)"
+                <div class="w-px h-8 bg-white/10 mx-1"></div>
+                <button id="exportMultiPlateBtn" title="Original Multi-Plate Export"
                   class="p-2 bg-white/5 border border-white/10 rounded-xl hover:bg-white/10 hover:border-white/20 transition-all text-white flex items-center gap-2 group">
-                  <span
-                    class="material-symbols-outlined text-lg group-hover:text-cyan-vibe transition-colors">print</span>
+                  <i data-lucide="layers" class="w-4 h-4 text-primary"></i>
+                  <span class="text-[10px] font-bold pr-1">MULTI-PLATE</span>
+                </button>
+                <button id="export3dPrintBtn" title="Optimized 3D Print Export"
+                  class="p-3 bg-gradient-to-r from-primary to-magenta-vibe border-0 rounded-xl hover:shadow-[0_0_20px_rgba(140,37,244,0.3)] transition-all text-white flex items-center gap-2 group">
+                  <i data-lucide="printer" class="w-4 h-4"></i>
                   <span class="text-[10px] font-bold pr-1 text-nowrap">3D PRINT</span>
                 </button>
                 <button id="downloadScadBtn" title="Download OpenSCAD Script"
@@ -463,6 +479,17 @@
               <span class="slider-toggle"></span>
             </label>
           </div>
+
+          <div class="flex justify-between items-center pt-4 border-t border-white/10">
+            <div class="flex flex-col">
+              <span class="text-xs font-bold uppercase tracking-widest text-primary">Include Instructions</span>
+              <span class="text-[10px] text-gray-400">Bundle PDF with 3MF in a ZIP</span>
+            </div>
+            <label class="switch">
+              <input type="checkbox" id="modalIncludePdf" checked />
+              <span class="slider-toggle"></span>
+            </label>
+          </div>
         </div>
 
         <div class="flex gap-4">
@@ -477,7 +504,42 @@
               class="hidden w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
           </button>
         </div>
+
       </div>
+    </div>
+    </div>
+
+    <!-- 3D Preview Modal -->
+    <div id="preview3dModal" class="fixed inset-0 z-[400] flex items-center justify-center hidden bg-black/95">
+      <div id="threeContainer" class="absolute inset-0"></div>
+
+      <div class="absolute top-10 left-10 flex flex-col">
+        <h2 class="text-4xl font-light tracking-widest uppercase">3D Preview</h2>
+        <p class="text-[9px] text-primary font-black tracking-[0.8em] mt-2">DICE-ART ENGINE V2</p>
+      </div>
+
+      <div
+        class="absolute bottom-10 left-1/2 -translate-x-1/2 flex items-center gap-10 glass-panel px-10 py-4 rounded-full border-white/10">
+        <div class="flex flex-col items-center">
+          <span class="text-[8px] opacity-40 uppercase font-black mb-1">Rotate</span>
+          <span class="text-xs">Left Mouse</span>
+        </div>
+        <div class="w-px h-6 bg-white/10"></div>
+        <div class="flex flex-col items-center">
+          <span class="text-[8px] opacity-40 uppercase font-black mb-1">Zoom</span>
+          <span class="text-xs">Scroll</span>
+        </div>
+        <div class="w-px h-6 bg-white/10"></div>
+        <div class="flex flex-col items-center">
+          <span class="text-[8px] opacity-40 uppercase font-black mb-1">Pan</span>
+          <span class="text-xs">Right Mouse</span>
+        </div>
+      </div>
+
+      <button id="closePreviewBtn"
+        class="absolute top-10 right-10 w-16 h-16 glass-panel rounded-full flex items-center justify-center hover:bg-white/10 transition-all">
+        <i data-lucide="x" class="w-6 h-6"></i>
+      </button>
     </div>
 
     <section id="examplesSection" class="w-full mt-24">

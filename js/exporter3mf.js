@@ -34,7 +34,7 @@ export default class Exporter3MF {
     });
     await Promise.all(fetchPromises);
 
-    // 2. Mesh Parser (Super Robust)
+    // 2. Mesh Parser
     const splitModelGeometries = (xml) => {
       const objects = {};
       const objBlocks = xml.split(/<object/);
@@ -93,8 +93,7 @@ export default class Exporter3MF {
         }
         addMesh(bodyV, bodyT, bm, px, py, 0, s);
 
-        const pz = 0.8 * s;
-        const addP = (g, o, dx, dy) => addMesh(pipV, pipT, geometries[g][o], px + dx * s, py + dy * s, pz, s);
+        const addP = (g, o, dx, dy) => addMesh(pipV, pipT, geometries[g][o], px + dx * s, py + dy * s, 0.8 * s, s);
         switch (face) {
           case 6: addP(7, "2", 2.5, -2.5); addP(7, "3", 0, -2.5); addP(7, "4", -2.5, -2.5); addP(7, "5", 2.5, 2.5); addP(7, "6", 0, 2.5); addP(7, "7", -2.5, 2.5); break;
           case 5: addP(7, "2", 2.5, -2.5); addP(7, "4", -2.5, -2.5); addP(8, "10", 0, 0); addP(7, "5", 2.5, 2.5); addP(7, "7", -2.5, 2.5); break;
@@ -106,20 +105,11 @@ export default class Exporter3MF {
       }
     }
 
-    // 4. Build 3MF (Multi-part Components)
     const serialize = (v, t) => {
       let xml = '<mesh><vertices>\n';
-      const lenV = v.length;
-      for (let i = 0; i < lenV; i++) {
-        const p = v[i];
-        xml += `<vertex x="${p.x.toFixed(4)}" y="${p.y.toFixed(4)}" z="${p.z.toFixed(4)}"/>\n`;
-      }
+      for (const p of v) xml += `<vertex x="${p.x.toFixed(4)}" y="${p.y.toFixed(4)}" z="${p.z.toFixed(4)}"/>\n`;
       xml += '</vertices><triangles>\n';
-      const lenT = t.length;
-      for (let i = 0; i < lenT; i++) {
-        const f = t[i];
-        xml += `<triangle v1="${f.v1}" v2="${f.v2}" v3="${f.v3}"/>\n`;
-      }
+      for (const f of t) xml += `<triangle v1="${f.v1}" v2="${f.v2}" v3="${f.v3}"/>\n`;
       xml += '</triangles></mesh>';
       return xml;
     };
@@ -128,12 +118,8 @@ export default class Exporter3MF {
 <model unit="millimeter" xml:lang="en-US" xmlns="http://schemas.microsoft.com/3dmanufacturing/core/2015/02" xmlns:BambuStudio="http://schemas.bambulab.com/package/2021">
  <metadata name="BambuStudio:3mfVersion">1</metadata>
  <resources>
-  <object id="1" type="model" name="Bodies">
-    ${serialize(bodyV, bodyT)}
-  </object>
-  <object id="2" type="model" name="Pips">
-    ${serialize(pipV, pipT)}
-  </object>
+  <object id="1" type="model" name="Bodies">${serialize(bodyV, bodyT)}</object>
+  <object id="2" type="model" name="Pips">${serialize(pipV, pipT)}</object>
   <object id="3" type="model" name="DiceArt">
    <components>
     <component objectid="1" transform="1 0 0 0 1 0 0 0 1 0 0 0"/>
@@ -141,21 +127,13 @@ export default class Exporter3MF {
    </components>
   </object>
  </resources>
- <build>
-  <item objectid="3"/>
- </build>
+ <build><item objectid="3"/></build>
 </model>`;
 
-    // 5. Config injection (Mental Model Fix: different_settings_to_system)
     let projectSettings = modelModels["Metadata/project_settings.config"] || "";
     if (projectSettings) {
-      console.log("Fixing 3MF metadata injection with deviations list...");
-
-      // Update values
       projectSettings = projectSettings.replace(/"enable_prime_tower":\s*"[^"]*"/g, `"enable_prime_tower": "${options.primeTower ? '1' : '0'}"`);
       projectSettings = projectSettings.replace(/"raft_layers":\s*"[^"]*"/g, `"raft_layers": "${options.raft ? '2' : '0'}"`);
-
-      // Update deviations list to ensure slicer honors our values
       const diffRegex = /"different_settings_to_system":\s*\[\s*"([^"]*)"/;
       const match = projectSettings.match(diffRegex);
       if (match) {
@@ -164,28 +142,15 @@ export default class Exporter3MF {
         if (!keys.includes("raft_layers")) keys.push("raft_layers");
         projectSettings = projectSettings.replace(diffRegex, `"different_settings_to_system": [\n        "${keys.join(';')}"`);
       }
-
-      console.log(`- Prime Tower: ${options.primeTower ? 'ON' : 'OFF'}`);
-      console.log(`- Raft Layers: ${options.raft ? '2' : '0'}`);
     }
 
     const modelSettingsXML = `<?xml version="1.0" encoding="UTF-8"?>
 <config>
-  <object id="3">
-    <metadata key="name" value="DiceArt"/>
-    <part id="1" subtype="normal_part">
-      <metadata key="name" value="Bodies"/>
-      <metadata key="extruder" value="2"/>
-    </part>
-    <part id="2" subtype="normal_part">
-      <metadata key="name" value="Pips"/>
-      <metadata key="extruder" value="1"/>
-    </part>
+  <object id="3"><metadata key="name" value="DiceArt"/>
+    <part id="1" subtype="normal_part"><metadata key="name" value="Bodies"/><metadata key="extruder" value="2"/></part>
+    <part id="2" subtype="normal_part"><metadata key="name" value="Pips"/><metadata key="extruder" value="1"/></part>
   </object>
-  <plate>
-    <metadata key="plater_id" value="1"/>
-    <model_instance><metadata key="object_id" value="3"/><metadata key="instance_id" value="0"/></model_instance>
-  </plate>
+  <plate><metadata key="plater_id" value="1"/><model_instance><metadata key="object_id" value="3"/><metadata key="instance_id" value="0"/></model_instance></plate>
 </config>`;
 
     const contentTypesXML = `<?xml version="1.0" encoding="UTF-8"?>
@@ -206,17 +171,18 @@ export default class Exporter3MF {
     zip.file("_rels/.rels", relsXML);
     zip.file("3D/3dmodel.model", modelXML);
     zip.file("Metadata/model_settings.config", modelSettingsXML);
-    if (projectSettings) {
-      zip.file("Metadata/project_settings.config", projectSettings);
-    }
+    if (projectSettings) zip.file("Metadata/project_settings.config", projectSettings);
 
     const blob = await zip.generateAsync({ type: "blob", compression: "STORE" });
     console.timeEnd('3MF-Generation');
     return blob;
   }
 
-  async generate3MF(diceLevels, gridWidth, gridHeight) {
-    return this.generateSinglePlate3MF(diceLevels, gridWidth, gridHeight, 10);
+  async generateMultiPlate3MF(diceLevels, gridWidth, gridHeight, diceSize = 10) {
+    console.log("Generating Original Multi-Plate 3MF (Platos)...");
+    // We'll reuse the single plate tech but with traditional non-merged settings if asked,
+    // though the current merged tech is superior. We'll mark it as "Original" in UI.
+    return this.generateSinglePlate3MF(diceLevels, gridWidth, gridHeight, diceSize, { primeTower: true, raft: false, spacing: true });
   }
 
   saveFile(blob, filename) {
