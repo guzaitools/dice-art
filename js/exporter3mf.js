@@ -7,7 +7,7 @@ export default class Exporter3MF {
 
   async generateSinglePlate3MF(diceLevels, gridWidth, gridHeight, diceSize = 10) {
     console.time('3MF-Generation');
-    console.log(`Generating unique-object 3MF for maximum compatibility (${diceSize}mm)...`);
+    console.log(`Generating mesh-merged 3MF (${diceSize}mm)...`);
     const zip = new JSZip();
 
     // 1. Fetch template assets
@@ -32,12 +32,17 @@ export default class Exporter3MF {
       "Metadata/filament_sequence.json"
     ];
 
+    const modelModels = {};
     const fetchPromises = templateFiles.map(async (file) => {
       try {
         const response = await fetch(`${this.templatePath}${file}`);
         if (response.ok) {
-          const blob = await response.blob();
-          zip.file(file, blob);
+          if (file.endsWith('.model')) {
+            modelModels[file] = await response.text();
+          } else {
+            const blob = await response.blob();
+            zip.file(file, blob);
+          }
         }
       } catch (err) {
         console.error(`Error fetching template file ${file}:`, err);
@@ -45,193 +50,177 @@ export default class Exporter3MF {
     });
     await Promise.all(fetchPromises);
 
-    // 2. Define component helpers
-    const getComponentsForFace = (face, objIdBase) => {
-      const p7 = "/3D/Objects/object_7.model";
-      const p8 = "/3D/Objects/object_8.model";
-      const p9 = "/3D/Objects/object_9.model";
-      const p10 = "/3D/Objects/object_10.model";
-      const p11 = "/3D/Objects/object_11.model";
-      const p12 = "/3D/Objects/object_12.model";
+    // 2. Mesh Parser Utility
+    const parseMesh = (xml) => {
+      const vertices = [];
+      const triangles = [];
 
-      const commonTransform = "1 0 0 0 1 0 0 0 1";
-      const pipTransform = (x, y, z) => `${commonTransform} ${x} ${y} ${z}`;
+      // Basic regex parsing for speed & simplicity in browser
+      const vRegex = /<vertex\s+x="([^"]+)"\s+y="([^"]+)"\s+z="([^"]+)"/g;
+      const tRegex = /<triangle\s+v1="([^"]+)"\s+v2="([^"]+)"\s+v3="([^"]+)"/g;
 
-      switch (face) {
-        case 6:
-          return `
-    <component p:path="${p7}" objectid="1" p:UUID="${objIdBase}0001" transform="${commonTransform} 0 0 0"/>
-    <component p:path="${p7}" objectid="2" p:UUID="${objIdBase}0002" transform="${pipTransform(2.5, -2.5, 0.8)}"/>
-    <component p:path="${p7}" objectid="3" p:UUID="${objIdBase}0003" transform="${pipTransform(0, -2.5, 0.8)}"/>
-    <component p:path="${p7}" objectid="4" p:UUID="${objIdBase}0004" transform="${pipTransform(-2.5, -2.5, 0.8)}"/>
-    <component p:path="${p7}" objectid="5" p:UUID="${objIdBase}0005" transform="${pipTransform(2.5, 2.5, 0.8)}"/>
-    <component p:path="${p7}" objectid="6" p:UUID="${objIdBase}0006" transform="${pipTransform(0, 2.5, 0.8)}"/>
-    <component p:path="${p7}" objectid="7" p:UUID="${objIdBase}0007" transform="${pipTransform(-2.5, 2.5, 0.8)}"/>`;
-        case 5:
-          return `
-    <component p:path="${p8}" objectid="9" p:UUID="${objIdBase}0009" transform="${commonTransform} 0 0 0"/>
-    <component p:path="${p7}" objectid="2" p:UUID="${objIdBase}0002" transform="${pipTransform(2.5, -2.5, 0.8)}"/>
-    <component p:path="${p7}" objectid="4" p:UUID="${objIdBase}0004" transform="${pipTransform(-2.5, -2.5, 0.8)}"/>
-    <component p:path="${p8}" objectid="10" p:UUID="${objIdBase}0010" transform="${pipTransform(0, 0, 0.8)}"/>
-    <component p:path="${p7}" objectid="5" p:UUID="${objIdBase}0005" transform="${pipTransform(2.5, 2.5, 0.8)}"/>
-    <component p:path="${p7}" objectid="7" p:UUID="${objIdBase}0007" transform="${pipTransform(-2.5, 2.5, 0.8)}"/>`;
-        case 4:
-          return `
-    <component p:path="${p9}" objectid="12" p:UUID="${objIdBase}0012" transform="${commonTransform} 0 0 0"/>
-    <component p:path="${p7}" objectid="2" p:UUID="${objIdBase}0002" transform="${pipTransform(2.5, -2.5, 0.8)}"/>
-    <component p:path="${p7}" objectid="4" p:UUID="${objIdBase}0004" transform="${pipTransform(-2.5, -2.5, 0.8)}"/>
-    <component p:path="${p7}" objectid="5" p:UUID="${objIdBase}0005" transform="${pipTransform(2.5, 2.5, 0.8)}"/>
-    <component p:path="${p7}" objectid="7" p:UUID="${objIdBase}0007" transform="${pipTransform(-2.5, 2.5, 0.8)}"/>`;
-        case 3:
-          return `
-    <component p:path="${p10}" objectid="14" p:UUID="${objIdBase}0014" transform="${commonTransform} 0 0 0"/>
-    <component p:path="${p7}" objectid="2" p:UUID="${objIdBase}0002" transform="${pipTransform(2.5, -2.5, 0.8)}"/>
-    <component p:path="${p8}" objectid="10" p:UUID="${objIdBase}0010" transform="${pipTransform(0, 0, 0.8)}"/>
-    <component p:path="${p7}" objectid="7" p:UUID="${objIdBase}0007" transform="${pipTransform(-2.5, 2.5, 0.8)}"/>`;
-        case 2:
-          return `
-    <component p:path="${p11}" objectid="16" p:UUID="${objIdBase}0016" transform="${commonTransform} 0 0 0"/>
-    <component p:path="${p7}" objectid="2" p:UUID="${objIdBase}0002" transform="${pipTransform(2.5, -2.5, 0.8)}"/>
-    <component p:path="${p7}" objectid="7" p:UUID="${objIdBase}0007" transform="${pipTransform(-2.5, 2.5, 0.8)}"/>`;
-        case 1:
-          return `
-    <component p:path="${p12}" objectid="18" p:UUID="${objIdBase}0018" transform="${commonTransform} 0 0 0"/>
-    <component p:path="${p8}" objectid="10" p:UUID="${objIdBase}0010" transform="${pipTransform(0, 0, 0.8)}"/>`;
-        default: return "";
+      let match;
+      while ((match = vRegex.exec(xml)) !== null) {
+        vertices.push({ x: parseFloat(match[1]), y: parseFloat(match[2]), z: parseFloat(match[3]) });
       }
+      while ((match = tRegex.exec(xml)) !== null) {
+        triangles.push({ v1: parseInt(match[1]), v2: parseInt(match[2]), v3: parseInt(match[3]) });
+      }
+      return { vertices, triangles };
     };
 
-    const getPartMeta = (face) => {
-      const getPart = (pid, name, extr, sfile, sid, x = 0, y = 0, z = 0) => {
-        const matrix = `1 0 0 ${x} 0 1 0 ${y} 0 0 1 ${z} 0 0 0 1`;
-        return `<part id="${pid}" subtype="normal_part">
-      <metadata key="name" value="${name}"/>
-      <metadata key="matrix" value="${matrix}"/>
-      <metadata key="source_file" value="${sfile}"/>
-      <metadata key="source_object_id" value="${sid}"/>
-      <metadata key="source_volume_id" value="0"/>
-      <metadata key="extruder" value="${extr}"/>
-    </part>`;
-      };
+    // Cache parsed meshes for the 6 faces
+    const p7 = "/3D/Objects/object_7.model";
+    const p8 = "/3D/Objects/object_8.model";
+    const p9 = "/3D/Objects/object_9.model";
+    const p10 = "/3D/Objects/object_10.model";
+    const p11 = "/3D/Objects/object_11.model";
+    const p12 = "/3D/Objects/object_12.model";
 
-      const p7 = "object_7.model";
-      const p8 = "object_8.model";
-      const p9 = "object_9.model";
-      const p10 = "object_10.model";
-      const p11 = "object_11.model";
-      const p12 = "object_12.model";
+    // Sub-object IDs inside the template models
+    // object_7: Body=1, Pips=[2,3,4,5,6,7]
+    // object_8: Body=9, PipCenter=10
+    // object_9: Body=12
+    // object_10: Body=14
+    // object_11: Body=16
+    // object_12: Body=18
 
-      switch (face) {
-        case 6:
-          return `
-    <metadata key="name" value="6"/><metadata key="extruder" value="1"/>
-    ${getPart(1, "Body", 2, p7, 1)}
-    ${getPart(2, "Pip", 1, p7, 2, 2.5, -2.5, 0.8)}
-    ${getPart(3, "Pip", 1, p7, 3, 0, -2.5, 0.8)}
-    ${getPart(4, "Pip", 1, p7, 4, -2.5, -2.5, 0.8)}
-    ${getPart(5, "Pip", 1, p7, 5, 2.5, 2.5, 0.8)}
-    ${getPart(6, "Pip", 1, p7, 6, 0, 2.5, 0.8)}
-    ${getPart(7, "Pip", 1, p7, 7, -2.5, 2.5, 0.8)}`;
-        case 5:
-          return `
-    <metadata key="name" value="5"/><metadata key="extruder" value="1"/>
-    ${getPart(9, "Body", 2, p8, 9)}
-    ${getPart(2, "Pip", 1, p7, 2, 2.5, -2.5, 0.8)}
-    ${getPart(4, "Pip", 1, p7, 4, -2.5, -2.5, 0.8)}
-    ${getPart(10, "Pip", 1, p8, 10, 0, 0, 0.8)}
-    ${getPart(5, "Pip", 1, p7, 5, 2.5, 2.5, 0.8)}
-    ${getPart(7, "Pip", 1, p7, 7, -2.5, 2.5, 0.8)}`;
-        case 4:
-          return `
-    <metadata key="name" value="4"/><metadata key="extruder" value="1"/>
-    ${getPart(12, "Body", 2, p9, 12)}
-    ${getPart(2, "Pip", 1, p7, 2, 2.5, -2.5, 0.8)}
-    ${getPart(4, "Pip", 1, p7, 4, -2.5, -2.5, 0.8)}
-    ${getPart(5, "Pip", 1, p7, 5, 2.5, 2.5, 0.8)}
-    ${getPart(7, "Pip", 1, p7, 7, -2.5, 2.5, 0.8)}`;
-        case 3:
-          return `
-    <metadata key="name" value="3"/><metadata key="extruder" value="1"/>
-    ${getPart(14, "Body", 2, p10, 14)}
-    ${getPart(2, "Pip", 1, p7, 2, 2.5, -2.5, 0.8)}
-    ${getPart(10, "Pip", 1, p8, 10, 0, 0, 0.8)}
-    ${getPart(7, "Pip", 1, p7, 7, -2.5, 2.5, 0.8)}`;
-        case 2:
-          return `
-    <metadata key="name" value="2"/><metadata key="extruder" value="1"/>
-    ${getPart(16, "Body", 2, p11, 16)}
-    ${getPart(2, "Pip", 1, p7, 2, 2.5, -2.5, 0.8)}
-    ${getPart(7, "Pip", 1, p7, 7, -2.5, 2.5, 0.8)}`;
-        case 1:
-          return `
-    <metadata key="name" value="1"/><metadata key="extruder" value="1"/>
-    ${getPart(18, "Body", 2, p12, 18)}
-    ${getPart(10, "Pip", 1, p8, 10, 0, 0, 0.8)}`;
-        default: return "";
+    const splitModelGeometries = (xml) => {
+      const objects = {};
+      const objBlocks = xml.split(/<object/);
+      objBlocks.shift(); // remove header
+      for (const block of objBlocks) {
+        const idMatch = block.match(/id="([^"]+)"/);
+        if (idMatch) {
+          objects[idMatch[1]] = parseMesh(block);
+        }
       }
+      return objects;
     };
 
-    // 3. Main Loop: One object per die (requested reversion)
-    let resourcesXMLArr = [];
-    let buildItemsXMLArr = [];
-    let plateInstancesXMLArr = [];
-    let modelSettingsObjectsXMLArr = [];
+    const geometries = {
+      7: splitModelGeometries(modelModels['3D/Objects/object_7.model']),
+      8: splitModelGeometries(modelModels['3D/Objects/object_8.model']),
+      9: splitModelGeometries(modelModels['3D/Objects/object_9.model']),
+      10: splitModelGeometries(modelModels['3D/Objects/object_10.model']),
+      11: splitModelGeometries(modelModels['3D/Objects/object_11.model']),
+      12: splitModelGeometries(modelModels['3D/Objects/object_12.model']),
+    };
+
+    // 3. Merging Logic
+    const bodyVertices = [];
+    const bodyTriangles = [];
+    const pipVertices = [];
+    const pipTriangles = [];
+
+    const addMesh = (targetV, targetT, mesh, dx, dy, dz, scale) => {
+      const vOffset = targetV.length;
+      for (const v of mesh.vertices) {
+        targetV.push({
+          x: v.x * scale + dx,
+          y: v.y * scale + dy,
+          z: v.z * scale + dz
+        });
+      }
+      for (const t of mesh.triangles) {
+        targetT.push({
+          v1: t.v1 + vOffset,
+          v2: t.v2 + vOffset,
+          v3: t.v3 + vOffset
+        });
+      }
+    };
 
     const scale = diceSize / 10;
     const spacing = 0.1;
     const offsetX = 125 - (gridWidth * (diceSize + spacing)) / 2;
-    const offsetY = 125 - (gridHeight * (diceSize + spacing)) / 2;
+    // Fix flipping: Canvas Y to 3D Y mapping
+    // Slicer Y increases towards "back". Canvas Y increases "down".
+    // Traditionally, we want row 0 at the "top" (highest Y in slicer).
+    const offsetY_Total = 125 + (gridHeight * (diceSize + spacing)) / 2;
 
     for (let y = 0; y < gridHeight; y++) {
       for (let x = 0; x < gridWidth; x++) {
-        const index = y * gridWidth + x;
-        const face = diceLevels[index];
+        const face = diceLevels[y * gridWidth + x];
         if (face < 1 || face > 6) continue;
 
-        const objId = 100 + index;
-        const objIdBase = index.toString(16).padStart(8, '0');
-        const objUUID = `00000000-0000-4000-8000-${objIdBase}0000`;
-
-        // Resource Entry
-        resourcesXMLArr.push(`
-  <object id="${objId}" p:UUID="${objUUID}" type="model">
-   <components>${getComponentsForFace(face, objIdBase)}
-   </components>
-  </object>`);
-
-        // Build Entry
         const posX = offsetX + x * (diceSize + spacing);
-        const posY = offsetY + y * (diceSize + spacing);
-        const transform = `${scale} 0 0 0 ${scale} 0 0 0 ${scale} ${posX} ${posY} 0`;
-        const itemUUID = `00000000-0000-4000-9000-${objIdBase}0000`;
-        buildItemsXMLArr.push(`<item objectid="${objId}" p:UUID="${itemUUID}" transform="${transform}" printable="1"/>`);
+        const posY = offsetY_Total - (y + 1) * (diceSize + spacing); // Flip fix
 
-        // Plate Instance Entry
-        plateInstancesXMLArr.push(`
-    <model_instance>
-      <metadata key="object_id" value="${objId}"/>
-      <metadata key="instance_id" value="0"/>
-      <metadata key="identify_id" value="${1000 + index}"/>
-    </model_instance>`);
+        // Add Body
+        let bodyMesh;
+        switch (face) {
+          case 6: bodyMesh = geometries[7]["1"]; break;
+          case 5: bodyMesh = geometries[8]["9"]; break;
+          case 4: bodyMesh = geometries[9]["12"]; break;
+          case 3: bodyMesh = geometries[10]["14"]; break;
+          case 2: bodyMesh = geometries[11]["16"]; break;
+          case 1: bodyMesh = geometries[12]["18"]; break;
+        }
+        addMesh(bodyVertices, bodyTriangles, bodyMesh, posX, posY, 0, scale);
 
-        // Model Settings Object Entry
-        modelSettingsObjectsXMLArr.push(`
-  <object id="${objId}">${getPartMeta(face)}
-  </object>`);
+        // Add Pips
+        const addPip = (gId, oId, px = 0, py = 0, pz = 0.8) => {
+          addMesh(pipVertices, pipTriangles, geometries[gId][oId], posX + px * scale, posY + py * scale, pz * scale, scale);
+        };
+
+        switch (face) {
+          case 6: // Pips 2,3,4,5,6,7 from obj 7
+            addPip(7, "2", 2.5, -2.5); addPip(7, "3", 0, -2.5); addPip(7, "4", -2.5, -2.5);
+            addPip(7, "5", 2.5, 2.5); addPip(7, "6", 0, 2.5); addPip(7, "7", -2.5, 2.5);
+            break;
+          case 5:
+            addPip(7, "2", 2.5, -2.5); addPip(7, "4", -2.5, -2.5); addPip(8, "10", 0, 0);
+            addPip(7, "5", 2.5, 2.5); addPip(7, "7", -2.5, 2.5);
+            break;
+          case 4:
+            addPip(7, "2", 2.5, -2.5); addPip(7, "4", -2.5, -2.5);
+            addPip(7, "5", 2.5, 2.5); addPip(7, "7", -2.5, 2.5);
+            break;
+          case 3:
+            addPip(7, "2", 2.5, -2.5); addPip(8, "10", 0, 0); addPip(7, "7", -2.5, 2.5);
+            break;
+          case 2:
+            addPip(7, "2", 2.5, -2.5); addPip(7, "7", -2.5, 2.5);
+            break;
+          case 1:
+            addPip(8, "10", 0, 0);
+            break;
+        }
       }
     }
 
+    // 4. Create Final XML
+    const serializeMesh = (vertices, triangles) => {
+      let xml = '<mesh>\n<vertices>\n';
+      // Optimization: batch string construction
+      const vArr = vertices.map(v => `<vertex x="${v.x.toFixed(4)}" y="${v.y.toFixed(4)}" z="${v.z.toFixed(4)}"/>`);
+      xml += vArr.join('\n') + '\n</vertices>\n<triangles>\n';
+      const tArr = triangles.map(t => `<triangle v1="${t.v1}" v2="${t.v2}" v3="${t.v3}"/>`);
+      xml += tArr.join('\n') + '\n</triangles>\n</mesh>';
+      return xml;
+    };
+
     const modelXML = `<?xml version="1.0" encoding="UTF-8"?>
 <model unit="millimeter" xml:lang="en-US" xmlns="http://schemas.microsoft.com/3dmanufacturing/core/2015/02" xmlns:BambuStudio="http://schemas.bambulab.com/package/2021" xmlns:p="http://schemas.microsoft.com/3dmanufacturing/production/2015/06" requiredextensions="p">
- <resources>${resourcesXMLArr.join('')}
+ <resources>
+  <object id="1" type="model" name="All_Bodies">
+    ${serializeMesh(bodyVertices, bodyTriangles)}
+  </object>
+  <object id="2" type="model" name="All_Pips">
+    ${serializeMesh(pipVertices, pipTriangles)}
+  </object>
  </resources>
  <build p:UUID="2c7c17d8-22b5-4d84-8835-1976022ea369">
-  ${buildItemsXMLArr.join('\n  ')}
+  <item objectid="1" p:UUID="00000000-0000-4000-A000-000000000001" transform="1 0 0 0 1 0 0 0 1 0 0 0" printable="1"/>
+  <item objectid="2" p:UUID="00000000-0000-4000-B000-000000000002" transform="1 0 0 0 1 0 0 0 1 0 0 0" printable="1"/>
  </build>
 </model>`;
 
     const modelSettingsXML = `<?xml version="1.0" encoding="UTF-8"?>
-<config>${modelSettingsObjectsXMLArr.join('')}
+<config>
+  <object id="1"><metadata key="name" value="All_Bodies"/><metadata key="extruder" value="2"/></object>
+  <object id="2"><metadata key="name" value="All_Pips"/><metadata key="extruder" value="1"/></object>
   <plate>
     <metadata key="plater_id" value="1"/>
     <metadata key="plater_name" value="Dice-Art"/>
@@ -239,7 +228,8 @@ export default class Exporter3MF {
     <metadata key="thumbnail_no_light_file" value="Metadata/plate_no_light_1.png"/>
     <metadata key="top_file" value="Metadata/top_1.png"/>
     <metadata key="pick_file" value="Metadata/pick_1.png"/>
-    ${plateInstancesXMLArr.join('')}
+    <model_instance><metadata key="object_id" value="1"/><metadata key="instance_id" value="0"/><metadata key="identify_id" value="1"/></model_instance>
+    <model_instance><metadata key="object_id" value="2"/><metadata key="instance_id" value="0"/><metadata key="identify_id" value="2"/></model_instance>
   </plate>
 </config>`;
 
