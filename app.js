@@ -53,6 +53,7 @@ let currentSettings = {
   dieColor: '#000000',
   pointColor: '#ffffff',
   sourceGrayscale: true,
+  diceSize: 10,
 };
 
 // Supported formats
@@ -86,10 +87,22 @@ function applySettingsToUI() {
   dieColorInput.value = currentSettings.dieColor;
   pointColorInput.value = currentSettings.pointColor;
   sourceGrayscaleToggle.checked = currentSettings.sourceGrayscale;
+  document.getElementById('diceSizeToggle').checked = currentSettings.diceSize === 10;
 
-  document.getElementById('dieColorPlaceholder').style.backgroundColor = currentSettings.dieColor;
-  document.getElementById('pointColorPlaceholder').style.backgroundColor =
-    currentSettings.pointColor;
+  // Update color selector highlighting
+  updateColorSelectors('dieColorSelectors', currentSettings.dieColor);
+  updateColorSelectors('pointColorSelectors', currentSettings.pointColor);
+}
+
+function updateColorSelectors(containerId, activeColor) {
+  const buttons = document.querySelectorAll(`#${containerId} button`);
+  buttons.forEach((btn) => {
+    if (btn.getAttribute('data-color') === activeColor) {
+      btn.classList.add('ring-2', 'ring-primary');
+    } else {
+      btn.classList.remove('ring-2', 'ring-primary');
+    }
+  });
 }
 
 // Initialize the application
@@ -157,6 +170,17 @@ function setupEventListeners() {
     processAndRender();
     saveSettings();
   });
+
+  const diceSizeToggle = document.getElementById('diceSizeToggle');
+  diceSizeToggle.addEventListener('change', (e) => {
+    currentSettings.diceSize = e.target.checked ? 10 : 5;
+    processAndRender();
+    saveSettings();
+  });
+
+  // Color Selector Listeners
+  setupColorSelector('dieColorSelectors', 'dieColor');
+  setupColorSelector('pointColorSelectors', 'pointColor');
 
   resetBtn.addEventListener('click', handleReset);
 
@@ -257,6 +281,25 @@ async function processAndRender() {
 // PDF Export Handler
 const downloadPdfBtn = document.getElementById('downloadPdfBtn');
 const download3mfBtn = document.getElementById('download3mfBtn');
+const export3dPrintBtn = document.getElementById('export3dPrintBtn');
+
+function setupColorSelector(containerId, settingKey) {
+  const buttons = document.querySelectorAll(`#${containerId} button`);
+  buttons.forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const color = btn.getAttribute('data-color');
+      currentSettings[settingKey] = color;
+      document.getElementById(settingKey).value = color;
+
+      // Update UI highlighting
+      updateColorSelectors(containerId, color);
+
+      // Regenerate dice if needed
+      diceRenderer.generateTintedDice(currentSettings.dieColor, currentSettings.pointColor);
+      debounceProcess();
+    });
+  });
+}
 
 downloadPdfBtn.addEventListener('click', async () => {
   if (!lastResult) return;
@@ -306,13 +349,41 @@ download3mfBtn.addEventListener('click', async () => {
       lastResult.gridWidth,
       lastResult.gridHeight
     );
-    exporter3mf.saveFile(blob, 'dice-art-project.3mf');
+    exporter3mf.saveFile(blob, 'dice-art-project-multiplate.3mf');
   } catch (error) {
     console.error('Error exporting 3MF:', error);
     alert('Error generating 3MF. This is a prototype.');
   } finally {
     download3mfBtn.disabled = false;
     download3mfBtn.innerHTML = originalHtml;
+    lucide.createIcons();
+  }
+});
+
+// New Single Plate 3D Print Export
+export3dPrintBtn.addEventListener('click', async () => {
+  if (!lastResult) return;
+
+  export3dPrintBtn.disabled = true;
+  const originalHtml = export3dPrintBtn.innerHTML;
+  export3dPrintBtn.innerHTML =
+    '<i data-lucide="sync" class="w-4 h-4 animate-spin"></i><span class="text-[10px] font-bold pr-1">PRINTING</span>';
+  lucide.createIcons();
+
+  try {
+    const blob = await exporter3mf.generateSinglePlate3MF(
+      lastResult.diceLevels,
+      lastResult.gridWidth,
+      lastResult.gridHeight,
+      currentSettings.diceSize
+    );
+    exporter3mf.saveFile(blob, `dice-art-print-${currentSettings.diceSize}mm.3mf`);
+  } catch (error) {
+    console.error('Error exporting 3D Print:', error);
+    alert('Error generating 3D Print 3MF.');
+  } finally {
+    export3dPrintBtn.disabled = false;
+    export3dPrintBtn.innerHTML = originalHtml;
     lucide.createIcons();
   }
 });
@@ -350,6 +421,7 @@ function handleReset() {
     dieColor: '#000000',
     pointColor: '#ffffff',
     sourceGrayscale: true,
+    diceSize: 10,
   };
   applySettingsToUI();
   diceRenderer.generateTintedDice(currentSettings.dieColor, currentSettings.pointColor);

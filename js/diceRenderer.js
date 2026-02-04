@@ -100,10 +100,10 @@ export default class DiceRenderer {
     const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
     return result
       ? {
-          r: parseInt(result[1], 16),
-          g: parseInt(result[2], 16),
-          b: parseInt(result[3], 16),
-        }
+        r: parseInt(result[1], 16),
+        g: parseInt(result[2], 16),
+        b: parseInt(result[3], 16),
+      }
       : { r: 0, g: 0, b: 0 };
   }
 
@@ -134,6 +134,20 @@ export default class DiceRenderer {
         }
       }
     }
+
+    // Draw #333 1px grid lines
+    ctx.strokeStyle = '#333333';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    for (let x = 0; x <= gridWidth; x++) {
+      ctx.moveTo(x * diceSize, 0);
+      ctx.lineTo(x * diceSize, gridHeight * diceSize);
+    }
+    for (let y = 0; y <= gridHeight; y++) {
+      ctx.moveTo(0, y * diceSize);
+      ctx.lineTo(gridWidth * diceSize, y * diceSize);
+    }
+    ctx.stroke();
   }
 
   /**
@@ -170,6 +184,20 @@ export default class DiceRenderer {
       if (onProgress) onProgress(Math.round((endIndex / totalDice) * 100));
       if (endIndex < totalDice) await new Promise((resolve) => setTimeout(resolve, 0));
     }
+
+    // Draw #333 1px grid lines
+    ctx.strokeStyle = '#333333';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    for (let x = 0; x <= gridWidth; x++) {
+      ctx.moveTo(x * diceSize, 0);
+      ctx.lineTo(x * diceSize, gridHeight * diceSize);
+    }
+    for (let y = 0; y <= gridHeight; y++) {
+      ctx.moveTo(0, y * diceSize);
+      ctx.lineTo(gridWidth * diceSize, y * diceSize);
+    }
+    ctx.stroke();
   }
 
   getDiceStats(diceLevels) {
