@@ -2,6 +2,7 @@ import ImageProcessor from './js/imageProcessor.js';
 import DiceRenderer from './js/diceRenderer.js';
 import PDFExporter from './js/pdfExporter.js';
 import Exporter3MF from './js/exporter3mf.js';
+import ExporterSCAD from './js/scadExporter.js';
 
 /**
  * Main Application Controller
@@ -13,6 +14,7 @@ const imageProcessor = new ImageProcessor();
 const diceRenderer = new DiceRenderer();
 const pdfExporter = new PDFExporter();
 const exporter3mf = new Exporter3MF();
+const scadExporter = new ExporterSCAD();
 
 // Last processing result for export
 let lastResult = null;
@@ -282,6 +284,7 @@ async function processAndRender() {
 const downloadPdfBtn = document.getElementById('downloadPdfBtn');
 const download3mfBtn = document.getElementById('download3mfBtn');
 const export3dPrintBtn = document.getElementById('export3dPrintBtn');
+const downloadScadBtn = document.getElementById('downloadScadBtn');
 
 function setupColorSelector(containerId, settingKey) {
   const buttons = document.querySelectorAll(`#${containerId} button`);
@@ -384,6 +387,34 @@ export3dPrintBtn.addEventListener('click', async () => {
   } finally {
     export3dPrintBtn.disabled = false;
     export3dPrintBtn.innerHTML = originalHtml;
+    lucide.createIcons();
+  }
+});
+
+// OpenSCAD Export Handler
+downloadScadBtn.addEventListener('click', async () => {
+  if (!lastResult) return;
+
+  downloadScadBtn.disabled = true;
+  const originalHtml = downloadScadBtn.innerHTML;
+  downloadScadBtn.innerHTML =
+    '<i data-lucide="sync" class="w-4 h-4 animate-spin"></i><span class="text-[10px] font-bold pr-1">SCAD</span>';
+  lucide.createIcons();
+
+  try {
+    const scadContent = scadExporter.generateSCAD(
+      lastResult.diceLevels,
+      lastResult.gridWidth,
+      lastResult.gridHeight,
+      currentSettings.diceSize
+    );
+    scadExporter.saveFile(scadContent, `dice-art-${currentSettings.diceSize}mm.scad`);
+  } catch (error) {
+    console.error('Error exporting SCAD:', error);
+    alert('Error generating OpenSCAD script.');
+  } finally {
+    downloadScadBtn.disabled = false;
+    downloadScadBtn.innerHTML = originalHtml;
     lucide.createIcons();
   }
 });
