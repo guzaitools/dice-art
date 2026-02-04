@@ -1,414 +1,486 @@
-<!DOCTYPE html>
+<!doctype html>
 <html class="dark" lang="es">
-
-<head>
+  <head>
     <meta charset="utf-8" />
     <meta content="width=device-width, initial-scale=1.0" name="viewport" />
     <title>Dice Art - Evolution Engine</title>
 
     <!-- PWA Meta Tags -->
-    <link rel="manifest" href="manifest.json">
-    <meta name="theme-color" content="#050208">
-    <link rel="icon" type="image/png" href="assets/icons/favicon.png">
-    <link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
+    <link rel="manifest" href="manifest.json" />
+    <meta name="theme-color" content="#050208" />
+    <link rel="icon" type="image/png" href="assets/icons/favicon.png" />
+    <link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png" />
 
     <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&amp;display=swap"
-        rel="stylesheet" />
     <link
-        href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght@100..700,FILL@0..1&amp;display=swap"
-        rel="stylesheet" />
+      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&amp;display=swap"
+      rel="stylesheet"
+    />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght@100..700,FILL@0..1&amp;display=swap"
+      rel="stylesheet"
+    />
 
     <script id="tailwind-config">
-        tailwind.config = {
-            darkMode: "class",
-            theme: {
-                extend: {
-                    colors: {
-                        "primary": "#8c25f4",
-                        "cyan-vibe": "#00f5ff",
-                        "magenta-vibe": "#ff00e5",
-                        "background-dark": "#050208",
-                    },
-                    fontFamily: {
-                        "display": ["Space Grotesk"]
-                    },
-                },
+      tailwind.config = {
+        darkMode: 'class',
+        theme: {
+          extend: {
+            colors: {
+              primary: '#8c25f4',
+              'cyan-vibe': '#00f5ff',
+              'magenta-vibe': '#ff00e5',
+              'background-dark': '#050208',
             },
-        }
+            fontFamily: {
+              display: ['Space Grotesk'],
+            },
+          },
+        },
+      };
     </script>
     <style>
-        body {
-            background-color: #050208;
-            color: white;
-            font-family: 'Space Grotesk', sans-serif;
-            margin: 0;
-            padding: 0;
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
-            overflow-x: hidden;
-        }
+      body {
+        background-color: #050208;
+        color: white;
+        font-family: 'Space Grotesk', sans-serif;
+        margin: 0;
+        padding: 0;
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+        overflow-x: hidden;
+      }
 
-        .glass-panel {
-            background: rgba(0, 0, 0, 0.65) !important;
-            backdrop-filter: blur(40px) !important;
-            -webkit-backdrop-filter: blur(40px) !important;
-            border: 1px solid rgba(255, 255, 255, 0.12) !important;
-            border-radius: 2rem;
-            pointer-events: auto !important;
-        }
+      .glass-panel {
+        background: rgba(0, 0, 0, 0.65) !important;
+        backdrop-filter: blur(40px) !important;
+        -webkit-backdrop-filter: blur(40px) !important;
+        border: 1px solid rgba(255, 255, 255, 0.12) !important;
+        border-radius: 2rem;
+        pointer-events: auto !important;
+      }
 
-        .bokeh {
-            position: fixed;
-            border-radius: 50%;
-            filter: blur(120px);
-            z-index: -1;
-            pointer-events: none;
-        }
+      .bokeh {
+        position: fixed;
+        border-radius: 50%;
+        filter: blur(120px);
+        z-index: -1;
+        pointer-events: none;
+      }
 
-        .comparison-slider-container {
-            position: relative;
-            width: 100%;
-            height: 75vh;
-            background: #000;
-            border-radius: 2.5rem;
-            overflow: hidden;
-            border: 1px solid rgba(255, 255, 255, 0.08);
-        }
+      .comparison-slider-container {
+        position: relative;
+        width: 100%;
+        height: 75vh;
+        background: #000;
+        border-radius: 2.5rem;
+        overflow: hidden;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+      }
 
-        .comparison-input {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            opacity: 0;
-            cursor: ew-resize;
-            z-index: 30;
-            margin: 0;
-        }
+      .comparison-input {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        opacity: 0;
+        cursor: ew-resize;
+        z-index: 30;
+        margin: 0;
+      }
 
-        .dice-wrapper {
-            position: absolute;
-            inset: 0;
-            z-index: 20;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 1.5rem;
-            clip-path: inset(0 50% 0 0);
-        }
+      .dice-wrapper {
+        position: absolute;
+        inset: 0;
+        z-index: 20;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 1.5rem;
+        clip-path: inset(0 50% 0 0);
+      }
 
-        .original-wrapper {
-            position: absolute;
-            inset: 0;
-            z-index: 10;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 1.5rem;
-            background: rgba(0, 0, 0, 0.5);
-        }
+      .original-wrapper {
+        position: absolute;
+        inset: 0;
+        z-index: 10;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 1.5rem;
+        background: rgba(0, 0, 0, 0.5);
+      }
 
-        .comparison-line {
-            position: absolute;
-            top: 0;
-            bottom: 0;
-            width: 2px;
-            background: white;
-            box-shadow: 0 0 20px rgba(255, 255, 255, 0.4);
-            z-index: 35;
-            left: 50%;
-            transform: translateX(-50%);
-            pointer-events: none;
-        }
+      .comparison-line {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        width: 2px;
+        background: white;
+        box-shadow: 0 0 20px rgba(255, 255, 255, 0.4);
+        z-index: 35;
+        left: 50%;
+        transform: translateX(-50%);
+        pointer-events: none;
+      }
 
-        .comparison-handle {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            width: 48px;
-            height: 48px;
-            background: rgba(255, 255, 255, 0.15);
-            backdrop-filter: blur(12px);
-            border: 2px solid rgba(255, 255, 255, 0.6);
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 40;
-            pointer-events: none;
-            color: white;
-        }
+      .comparison-handle {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 48px;
+        height: 48px;
+        background: rgba(255, 255, 255, 0.15);
+        backdrop-filter: blur(12px);
+        border: 2px solid rgba(255, 255, 255, 0.6);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 40;
+        pointer-events: none;
+        color: white;
+      }
 
-        .handle-triangles {
-            display: flex;
-            gap: 4px;
-            align-items: center;
-        }
+      .handle-triangles {
+        display: flex;
+        gap: 4px;
+        align-items: center;
+      }
 
-        .triangle-left {
-            width: 0;
-            height: 0;
-            border-top: 6px solid transparent;
-            border-bottom: 6px solid transparent;
-            border-right: 8px solid white;
-        }
+      .triangle-left {
+        width: 0;
+        height: 0;
+        border-top: 6px solid transparent;
+        border-bottom: 6px solid transparent;
+        border-right: 8px solid white;
+      }
 
-        .triangle-right {
-            width: 0;
-            height: 0;
-            border-top: 6px solid transparent;
-            border-bottom: 6px solid transparent;
-            border-left: 8px solid white;
-        }
+      .triangle-right {
+        width: 0;
+        height: 0;
+        border-top: 6px solid transparent;
+        border-bottom: 6px solid transparent;
+        border-left: 8px solid white;
+      }
 
-        .hidden {
-            display: none !important;
-        }
+      .hidden {
+        display: none !important;
+      }
 
-        #floatingControls {
-            z-index: 150 !important;
-        }
+      #floatingControls {
+        z-index: 150 !important;
+      }
 
-        /* Tooltip-like color indicator */
-        .color-dot {
-            width: 14px;
-            height: 14px;
-            border-radius: 4px;
-            border: 1px solid rgba(255, 255, 255, 0.2);
-        }
+      /* Tooltip-like color indicator */
+      .color-dot {
+        width: 14px;
+        height: 14px;
+        border-radius: 4px;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+      }
 
-        /* Toggle Switch Custom */
-        .switch {
-            position: relative;
-            display: inline-block;
-            width: 40px;
-            height: 20px;
-        }
+      /* Toggle Switch Custom */
+      .switch {
+        position: relative;
+        display: inline-block;
+        width: 40px;
+        height: 20px;
+      }
 
-        .switch input {
-            opacity: 0;
-            width: 0;
-            height: 0;
-        }
+      .switch input {
+        opacity: 0;
+        width: 0;
+        height: 0;
+      }
 
-        .slider-toggle {
-            position: absolute;
-            cursor: pointer;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background-color: #333;
-            transition: .4s;
-            border-radius: 20px;
-        }
+      .slider-toggle {
+        position: absolute;
+        cursor: pointer;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: #333;
+        transition: 0.4s;
+        border-radius: 20px;
+      }
 
-        .slider-toggle:before {
-            position: absolute;
-            content: "";
-            height: 14px;
-            width: 14px;
-            left: 3px;
-            bottom: 3px;
-            background-color: white;
-            transition: .4s;
-            border-radius: 50%;
-        }
+      .slider-toggle:before {
+        position: absolute;
+        content: '';
+        height: 14px;
+        width: 14px;
+        left: 3px;
+        bottom: 3px;
+        background-color: white;
+        transition: 0.4s;
+        border-radius: 50%;
+      }
 
-        input:checked+.slider-toggle {
-            background-color: #8c25f4;
-        }
+      input:checked + .slider-toggle {
+        background-color: #8c25f4;
+      }
 
-        input:checked+.slider-toggle:before {
-            transform: translateX(20px);
-        }
+      input:checked + .slider-toggle:before {
+        transform: translateX(20px);
+      }
     </style>
-</head>
+  </head>
 
-<body class="bg-[#050208] text-white">
+  <body class="bg-[#050208] text-white">
     <div class="bokeh w-[600px] h-[600px] bg-primary -top-20 -left-20 opacity-20"></div>
-    <div class="bokeh w-[500px] h-[500px] bg-magenta-vibe bottom-[-100px] right-[-100px] opacity-10"></div>
+    <div
+      class="bokeh w-[500px] h-[500px] bg-magenta-vibe bottom-[-100px] right-[-100px] opacity-10"
+    ></div>
 
     <main class="relative z-10 flex-1 flex flex-col items-center p-6 w-full max-w-[1600px] mx-auto">
+      <header id="appHeader" class="mb-10 flex flex-col items-center transition-all duration-1000">
+        <img
+          alt="Dice Art Logo"
+          class="h-28 cursor-pointer hover:scale-105 transition-transform"
+          src="assets/icons/logo.png"
+          onclick="location.reload()"
+        />
+      </header>
 
-        <header id="appHeader" class="mb-10 flex flex-col items-center transition-all duration-1000">
-            <img alt="Dice Art Logo" class="h-28 cursor-pointer hover:scale-105 transition-transform"
-                src="assets/icons/logo.png" onclick="location.reload()" />
-        </header>
+      <section
+        id="uploadSection"
+        class="w-full max-w-2xl flex-1 flex flex-col justify-center animate-fade-in"
+      >
+        <div
+          id="uploadArea"
+          class="relative flex flex-col items-center justify-center py-20 px-8 rounded-[4rem] border border-white/5 bg-white/[0.02] backdrop-blur-sm cursor-pointer hover:border-white/20 transition-all group"
+        >
+          <div class="text-center mb-10">
+            <h1 class="text-4xl font-light tracking-tight mb-4">
+              Transform your
+              <span
+                class="italic font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-vibe to-magenta-vibe"
+                >vision</span
+              >
+              into dice
+            </h1>
+          </div>
+          <input type="file" id="fileInput" accept=".png, .jpg, .jpeg, .webp" hidden />
+          <button
+            id="uploadBtn"
+            class="px-12 py-5 rounded-full bg-gradient-to-r from-primary to-magenta-vibe font-bold tracking-widest text-sm hover:shadow-[0_0_30px_rgba(140,37,244,0.4)] transition-all active:scale-95"
+          >
+            SELECT IMAGE
+          </button>
+        </div>
+      </section>
 
-        <section id="uploadSection" class="w-full max-w-2xl flex-1 flex flex-col justify-center animate-fade-in">
-            <div id="uploadArea"
-                class="relative flex flex-col items-center justify-center py-20 px-8 rounded-[4rem] border border-white/5 bg-white/[0.02] backdrop-blur-sm cursor-pointer hover:border-white/20 transition-all group">
-                <div class="text-center mb-10">
-                    <h1 class="text-4xl font-light tracking-tight mb-4">Transform your <span
-                            class="italic font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-vibe to-magenta-vibe">vision</span>
-                        into dice</h1>
+      <section
+        id="processingSection"
+        class="hidden w-full flex flex-col items-center animate-fade-in"
+      >
+        <div class="w-full relative flex flex-col gap-8">
+          <div class="comparison-slider-container">
+            <input
+              type="range"
+              id="comparisonSlider"
+              min="0"
+              max="100"
+              value="50"
+              class="comparison-input"
+            />
+            <div class="dice-wrapper">
+              <canvas id="diceCanvas" class="max-w-full max-h-full rounded-2xl"></canvas>
+            </div>
+            <div class="original-wrapper">
+              <canvas id="originalCanvas" class="max-w-full max-h-full rounded-2xl"></canvas>
+            </div>
+            <div class="comparison-line"></div>
+            <div class="comparison-handle">
+              <div class="handle-triangles">
+                <div class="triangle-left"></div>
+                <div class="triangle-right"></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="flex flex-col md:flex-row justify-between items-center gap-10 w-full px-6">
+            <div class="flex flex-col gap-1">
+              <span class="text-[9px] tracking-[0.4em] text-gray-500 uppercase font-black"
+                >Spatial Matrix</span
+              >
+              <span id="dimensionsInfo" class="text-xs tracking-[0.2em] text-cyan-vibe font-bold"
+                >0 columnas × 0 filas</span
+              >
+            </div>
+            <div id="diceStatsList" class="flex flex-wrap justify-center gap-6"></div>
+            <div class="flex flex-col items-end gap-1">
+              <span class="text-[9px] tracking-[0.4em] text-gray-500 uppercase font-black"
+                >Total Units</span
+              >
+              <span id="totalDiceInfo" class="text-2xl font-black font-mono text-white">0</span>
+            </div>
+          </div>
+
+          <!-- Floating Controls -->
+          <div id="floatingControls" class="absolute top-10 right-10 w-72 pointer-events-none">
+            <div class="glass-panel p-8 shadow-2xl pointer-events-auto">
+              <div class="space-y-8">
+                <!-- Matrix Size -->
+                <div>
+                  <div
+                    class="flex justify-between text-[9px] uppercase tracking-[0.3em] text-gray-400 mb-3 font-black"
+                  >
+                    <span>Columns</span>
+                    <span id="gridSizeValue" class="text-cyan-vibe">50</span>
+                  </div>
+                  <input
+                    type="range"
+                    id="gridSize"
+                    min="20"
+                    max="150"
+                    value="50"
+                    step="5"
+                    class="w-full h-1 bg-white/10 rounded-full appearance-none accent-primary cursor-pointer"
+                  />
                 </div>
-                <input type="file" id="fileInput" accept=".png, .jpg, .jpeg, .webp" hidden>
-                <button id="uploadBtn"
-                    class="px-12 py-5 rounded-full bg-gradient-to-r from-primary to-magenta-vibe font-bold tracking-widest text-sm hover:shadow-[0_0_30px_rgba(140,37,244,0.4)] transition-all active:scale-95">
-                    SELECT IMAGE
+
+                <!-- Image Enhancement -->
+                <div>
+                  <div
+                    class="flex justify-between text-[9px] uppercase tracking-[0.3em] text-gray-400 mb-3 font-black"
+                  >
+                    <span>Enhancement</span>
+                    <span id="brightnessValue" class="text-magenta-vibe">0</span>
+                  </div>
+                  <input
+                    type="range"
+                    id="brightness"
+                    min="-100"
+                    max="100"
+                    value="0"
+                    step="5"
+                    class="w-full h-1 bg-white/10 rounded-full appearance-none accent-magenta-vibe cursor-pointer"
+                  />
+                  <input type="hidden" id="contrast" value="0" />
+                </div>
+
+                <!-- Color Theme Customization -->
+                <div class="border-t border-white/5 pt-6 space-y-4">
+                  <div class="flex justify-between items-center">
+                    <span class="text-[9px] uppercase tracking-[0.3em] text-gray-400 font-black"
+                      >Dice Color</span
+                    >
+                    <div class="flex items-center gap-3">
+                      <div id="dieColorPlaceholder" class="color-dot bg-black"></div>
+                      <input
+                        type="color"
+                        id="dieColor"
+                        value="#000000"
+                        class="w-6 h-6 border-0 bg-transparent cursor-pointer"
+                      />
+                    </div>
+                  </div>
+                  <div class="flex justify-between items-center">
+                    <span class="text-[9px] uppercase tracking-[0.3em] text-gray-400 font-black"
+                      >Points Color</span
+                    >
+                    <div class="flex items-center gap-3">
+                      <div id="pointColorPlaceholder" class="color-dot bg-white"></div>
+                      <input
+                        type="color"
+                        id="pointColor"
+                        value="#ffffff"
+                        class="w-6 h-6 border-0 bg-transparent cursor-pointer"
+                      />
+                    </div>
+                  </div>
+                  <div class="flex justify-between items-center">
+                    <span class="text-[9px] uppercase tracking-[0.3em] text-gray-400 font-black"
+                      >Grayscale Preview</span
+                    >
+                    <label class="switch">
+                      <input type="checkbox" id="sourceGrayscaleToggle" checked />
+                      <span class="slider-toggle"></span>
+                    </label>
+                  </div>
+                </div>
+              </div>
+
+              <div class="mt-10">
+                <button
+                  id="resetBtn"
+                  class="w-full py-4 bg-white/5 border border-white/10 rounded-2xl text-[9px] uppercase tracking-widest font-black hover:bg-white/10 transition-all uppercase"
+                >
+                  Reset Parameters
                 </button>
+              </div>
             </div>
-        </section>
+          </div>
+        </div>
 
-        <section id="processingSection" class="hidden w-full flex flex-col items-center animate-fade-in">
-            <div class="w-full relative flex flex-col gap-8">
+        <div
+          id="loadingOverlay"
+          class="absolute inset-0 bg-[#050208]/95 flex flex-col items-center justify-center hidden rounded-[3rem] z-[200] backdrop-blur-3xl"
+        >
+          <div
+            class="w-16 h-16 border-2 border-primary border-t-transparent rounded-full animate-spin mb-6"
+          ></div>
+          <p class="text-[10px] tracking-[0.8em] text-cyan-vibe uppercase animate-pulse font-black">
+            Reconstructing Reality...
+          </p>
+        </div>
+      </section>
 
-                <div class="comparison-slider-container">
-                    <input type="range" id="comparisonSlider" min="0" max="100" value="50" class="comparison-input">
-                    <div class="dice-wrapper">
-                        <canvas id="diceCanvas" class="max-w-full max-h-full rounded-2xl"></canvas>
-                    </div>
-                    <div class="original-wrapper">
-                        <canvas id="originalCanvas" class="max-w-full max-h-full rounded-2xl"></canvas>
-                    </div>
-                    <div class="comparison-line"></div>
-                    <div class="comparison-handle">
-                        <div class="handle-triangles">
-                            <div class="triangle-left"></div>
-                            <div class="triangle-right"></div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="flex flex-col md:flex-row justify-between items-center gap-10 w-full px-6">
-                    <div class="flex flex-col gap-1">
-                        <span class="text-[9px] tracking-[0.4em] text-gray-500 uppercase font-black">Spatial
-                            Matrix</span>
-                        <span id="dimensionsInfo" class="text-xs tracking-[0.2em] text-cyan-vibe font-bold">0 columnas ×
-                            0 filas</span>
-                    </div>
-                    <div id="diceStatsList" class="flex flex-wrap justify-center gap-6"></div>
-                    <div class="flex flex-col items-end gap-1">
-                        <span class="text-[9px] tracking-[0.4em] text-gray-500 uppercase font-black">Total Units</span>
-                        <span id="totalDiceInfo" class="text-2xl font-black font-mono text-white">0</span>
-                    </div>
-                </div>
-
-                <!-- Floating Controls -->
-                <div id="floatingControls" class="absolute top-10 right-10 w-72 pointer-events-none">
-                    <div class="glass-panel p-8 shadow-2xl pointer-events-auto">
-                        <div class="space-y-8">
-                            <!-- Matrix Size -->
-                            <div>
-                                <div
-                                    class="flex justify-between text-[9px] uppercase tracking-[0.3em] text-gray-400 mb-3 font-black">
-                                    <span>Columns</span>
-                                    <span id="gridSizeValue" class="text-cyan-vibe">50</span>
-                                </div>
-                                <input type="range" id="gridSize" min="20" max="150" value="50" step="5"
-                                    class="w-full h-1 bg-white/10 rounded-full appearance-none accent-primary cursor-pointer">
-                            </div>
-
-                            <!-- Image Enhancement -->
-                            <div>
-                                <div
-                                    class="flex justify-between text-[9px] uppercase tracking-[0.3em] text-gray-400 mb-3 font-black">
-                                    <span>Enhancement</span>
-                                    <span id="brightnessValue" class="text-magenta-vibe">0</span>
-                                </div>
-                                <input type="range" id="brightness" min="-100" max="100" value="0" step="5"
-                                    class="w-full h-1 bg-white/10 rounded-full appearance-none accent-magenta-vibe cursor-pointer">
-                                <input type="hidden" id="contrast" value="0">
-                            </div>
-
-                            <!-- Color Theme Customization -->
-                            <div class="border-t border-white/5 pt-6 space-y-4">
-                                <div class="flex justify-between items-center">
-                                    <span class="text-[9px] uppercase tracking-[0.3em] text-gray-400 font-black">Dice
-                                        Color</span>
-                                    <div class="flex items-center gap-3">
-                                        <div id="dieColorPlaceholder" class="color-dot bg-black"></div>
-                                        <input type="color" id="dieColor" value="#000000"
-                                            class="w-6 h-6 border-0 bg-transparent cursor-pointer">
-                                    </div>
-                                </div>
-                                <div class="flex justify-between items-center">
-                                    <span class="text-[9px] uppercase tracking-[0.3em] text-gray-400 font-black">Points
-                                        Color</span>
-                                    <div class="flex items-center gap-3">
-                                        <div id="pointColorPlaceholder" class="color-dot bg-white"></div>
-                                        <input type="color" id="pointColor" value="#ffffff"
-                                            class="w-6 h-6 border-0 bg-transparent cursor-pointer">
-                                    </div>
-                                </div>
-                                <div class="flex justify-between items-center">
-                                    <span
-                                        class="text-[9px] uppercase tracking-[0.3em] text-gray-400 font-black">Grayscale
-                                        Preview</span>
-                                    <label class="switch">
-                                        <input type="checkbox" id="sourceGrayscaleToggle" checked>
-                                        <span class="slider-toggle"></span>
-                                    </label>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="mt-10">
-                            <button id="resetBtn"
-                                class="w-full py-4 bg-white/5 border border-white/10 rounded-2xl text-[9px] uppercase tracking-widest font-black hover:bg-white/10 transition-all uppercase">Reset
-                                Parameters</button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div id="loadingOverlay"
-                class="absolute inset-0 bg-[#050208]/95 flex flex-col items-center justify-center hidden rounded-[3rem] z-[200] backdrop-blur-3xl">
-                <div class="w-16 h-16 border-2 border-primary border-t-transparent rounded-full animate-spin mb-6">
-                </div>
-                <p class="text-[10px] tracking-[0.8em] text-cyan-vibe uppercase animate-pulse font-black">Reconstructing
-                    Reality...</p>
-            </div>
-        </section>
-
-        <section id="examplesSection" class="w-full mt-24">
-            <h3
-                class="text-xs font-black uppercase tracking-[0.8em] text-magenta-vibe mb-10 text-center md:text-left px-6">
-                Render Benchmarks</h3>
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 px-6">
-                <div class="glass-panel overflow-hidden group aspect-[3/4] rounded-[2.5rem]">
-                    <img src="https://lh3.googleusercontent.com/aida-public/AB6AXuBmYA8t3H_rwj5KzGO0ipRo1sX_8MhPgF9dY21k0gW7yatKTzj6oLL5Ceg3PTuXfXP_HP5IC2Eqz_QCyTDIjsobmlfVQ8PN5WnJByeHh_-_yZN02qC8iP88doWxDZma2ss6icaOZQVQzADroF3C7KWUR-THVvuEIj1s7biVxO7ouMssvipQN23YJ82rBUhiaqXqGwJD12yOakH7U34l_WyzhL2IEguyp1trIuFsDmookePIWPKwlclorY218xx825_yxI4o28QdFgsP"
-                        class="w-full h-full object-cover opacity-40 group-hover:opacity-100 transition-opacity">
-                </div>
-                <div class="glass-panel overflow-hidden group aspect-[3/4] rounded-[2.5rem]">
-                    <img src="https://lh3.googleusercontent.com/aida-public/AB6AXuBFtnmzxhR1ce9sSXR717ofHAF9RHM1C_LMCmEHDMLwzCg12dWNem8hBX_ln5_rn3p_f2IH3fSK1tONqUEFEJtHMdriQhpOvVuzhfkTppIXl_58X_sWCnn0-jJXdD3PAVTROJLwxFpvqk1kdyPGUTnPnhVEDHD10nWDfvwMW_bCpVBni6H_NKEgzClmSWERrv3PMe3b27CD0n8pG0TDZTnMoY0vapKvX6P-9uBIihelQ8rQcx0m-QNkBDz2kaUQhTKjAi9njVngi4-4"
-                        class="w-full h-full object-cover opacity-40 group-hover:opacity-100 transition-opacity">
-                </div>
-                <div class="glass-panel overflow-hidden group aspect-[3/4] rounded-[2.5rem]">
-                    <img src="https://lh3.googleusercontent.com/aida-public/AB6AXuDpZIqTQYqChopxxYi74q27hNWTjHdwsrPu48_YXZQz8hJsujvXv_hQZSFsgbDmGfQGGnixyR4Ttc3uFJ6MX7Ppc1wR5HbbNKo1LxK_RhZfWBf005JpSR30B0ZBMvV0blHS_kYBFheQoqXPdGDHjZkTS611emf6B2zZRP8RAPgx4r-kHmtUvyv1lf7dZxP4UYyP6Yrr_Se3zYXySeZeejY2VHJjMXTE7ArljeuCN3ZUw-Df8wylkYDQy1NXbIZaXbJq3499YvzqKZX_"
-                        class="w-full h-full object-cover opacity-40 group-hover:opacity-100 transition-opacity">
-                </div>
-                <div class="glass-panel overflow-hidden group aspect-[3/4] rounded-[2.5rem]">
-                    <img src="https://lh3.googleusercontent.com/aida-public/AB6AXuBNwe88hUqUbORcrvwhpko-1He_i7-Pyq3rNzrIUGrXy_r59zlRhPdTHCGU5j5g881TBkU2lhuumY8RnX4WaZBxcR4X7QggRDsAwHpCsPci5vviBTCXnHaHATzS0P1lF0ak7lwqwU0j_7-Smhwan9-NV7u7hEEYACV5-jTvgsUZtuoiTKgz3nR2aXQw3eGKkcX8h8eyRgJZMlWYdqvX0PKoTBIIazFKfHcD4tu3JfYir-kxtvmLOnWzIe9dMUNx5Y3orlqkmZHp5nQ1"
-                        class="w-full h-full object-cover opacity-40 group-hover:opacity-100 transition-opacity">
-                </div>
-            </div>
-        </section>
+      <section id="examplesSection" class="w-full mt-24">
+        <h3
+          class="text-xs font-black uppercase tracking-[0.8em] text-magenta-vibe mb-10 text-center md:text-left px-6"
+        >
+          Render Benchmarks
+        </h3>
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 px-6">
+          <div class="glass-panel overflow-hidden group aspect-[3/4] rounded-[2.5rem]">
+            <img
+              src="https://lh3.googleusercontent.com/aida-public/AB6AXuBmYA8t3H_rwj5KzGO0ipRo1sX_8MhPgF9dY21k0gW7yatKTzj6oLL5Ceg3PTuXfXP_HP5IC2Eqz_QCyTDIjsobmlfVQ8PN5WnJByeHh_-_yZN02qC8iP88doWxDZma2ss6icaOZQVQzADroF3C7KWUR-THVvuEIj1s7biVxO7ouMssvipQN23YJ82rBUhiaqXqGwJD12yOakH7U34l_WyzhL2IEguyp1trIuFsDmookePIWPKwlclorY218xx825_yxI4o28QdFgsP"
+              class="w-full h-full object-cover opacity-40 group-hover:opacity-100 transition-opacity"
+            />
+          </div>
+          <div class="glass-panel overflow-hidden group aspect-[3/4] rounded-[2.5rem]">
+            <img
+              src="https://lh3.googleusercontent.com/aida-public/AB6AXuBFtnmzxhR1ce9sSXR717ofHAF9RHM1C_LMCmEHDMLwzCg12dWNem8hBX_ln5_rn3p_f2IH3fSK1tONqUEFEJtHMdriQhpOvVuzhfkTppIXl_58X_sWCnn0-jJXdD3PAVTROJLwxFpvqk1kdyPGUTnPnhVEDHD10nWDfvwMW_bCpVBni6H_NKEgzClmSWERrv3PMe3b27CD0n8pG0TDZTnMoY0vapKvX6P-9uBIihelQ8rQcx0m-QNkBDz2kaUQhTKjAi9njVngi4-4"
+              class="w-full h-full object-cover opacity-40 group-hover:opacity-100 transition-opacity"
+            />
+          </div>
+          <div class="glass-panel overflow-hidden group aspect-[3/4] rounded-[2.5rem]">
+            <img
+              src="https://lh3.googleusercontent.com/aida-public/AB6AXuDpZIqTQYqChopxxYi74q27hNWTjHdwsrPu48_YXZQz8hJsujvXv_hQZSFsgbDmGfQGGnixyR4Ttc3uFJ6MX7Ppc1wR5HbbNKo1LxK_RhZfWBf005JpSR30B0ZBMvV0blHS_kYBFheQoqXPdGDHjZkTS611emf6B2zZRP8RAPgx4r-kHmtUvyv1lf7dZxP4UYyP6Yrr_Se3zYXySeZeejY2VHJjMXTE7ArljeuCN3ZUw-Df8wylkYDQy1NXbIZaXbJq3499YvzqKZX_"
+              class="w-full h-full object-cover opacity-40 group-hover:opacity-100 transition-opacity"
+            />
+          </div>
+          <div class="glass-panel overflow-hidden group aspect-[3/4] rounded-[2.5rem]">
+            <img
+              src="https://lh3.googleusercontent.com/aida-public/AB6AXuBNwe88hUqUbORcrvwhpko-1He_i7-Pyq3rNzrIUGrXy_r59zlRhPdTHCGU5j5g881TBkU2lhuumY8RnX4WaZBxcR4X7QggRDsAwHpCsPci5vviBTCXnHaHATzS0P1lF0ak7lwqwU0j_7-Smhwan9-NV7u7hEEYACV5-jTvgsUZtuoiTKgz3nR2aXQw3eGKkcX8h8eyRgJZMlWYdqvX0PKoTBIIazFKfHcD4tu3JfYir-kxtvmLOnWzIe9dMUNx5Y3orlqkmZHp5nQ1"
+              class="w-full h-full object-cover opacity-40 group-hover:opacity-100 transition-opacity"
+            />
+          </div>
+        </div>
+      </section>
     </main>
 
-    <script src="js/imageProcessor.js"></script>
-    <script src="js/diceRenderer.js"></script>
-    <script src="app.js"></script>
+    <script type="module" src="/app.js"></script>
 
     <script>
-        const slider = document.getElementById('comparisonSlider');
-        const line = document.querySelector('.comparison-line');
-        const handle = document.querySelector('.comparison-handle');
-        const diceWrapper = document.querySelector('.dice-wrapper');
+      const slider = document.getElementById('comparisonSlider');
+      const line = document.querySelector('.comparison-line');
+      const handle = document.querySelector('.comparison-handle');
+      const diceWrapper = document.querySelector('.dice-wrapper');
 
-        slider.addEventListener('input', (e) => {
-            const val = e.target.value;
-            line.style.left = val + '%';
-            handle.style.left = val + '%';
-            diceWrapper.style.clipPath = `inset(0 ${100 - val}% 0 0)`;
-        });
+      slider.addEventListener('input', (e) => {
+        const val = e.target.value;
+        line.style.left = val + '%';
+        handle.style.left = val + '%';
+        diceWrapper.style.clipPath = `inset(0 ${100 - val}% 0 0)`;
+      });
     </script>
-</body>
-
+  </body>
 </html>
