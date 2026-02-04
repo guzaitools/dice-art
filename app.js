@@ -1,5 +1,7 @@
 import ImageProcessor from './js/imageProcessor.js';
 import DiceRenderer from './js/diceRenderer.js';
+import PDFExporter from './js/pdfExporter.js';
+import Exporter3MF from './js/exporter3mf.js';
 
 /**
  * Main Application Controller
@@ -9,6 +11,11 @@ import DiceRenderer from './js/diceRenderer.js';
 // Initialize modules
 const imageProcessor = new ImageProcessor();
 const diceRenderer = new DiceRenderer();
+const pdfExporter = new PDFExporter();
+const exporter3mf = new Exporter3MF();
+
+// Last processing result for export
+let lastResult = null;
 
 // DOM Elements
 const uploadSection = document.getElementById('uploadSection');
@@ -227,6 +234,8 @@ async function processAndRender() {
       currentSettings.sourceGrayscale
     );
 
+    lastResult = result; // Store for export
+
     dimensionsInfo.textContent = `${result.gridWidth} columnas × ${result.gridHeight} filas`;
     totalDiceInfo.textContent = result.totalDice.toLocaleString();
 
@@ -244,6 +253,69 @@ async function processAndRender() {
     loadingOverlay.classList.add('hidden');
   }
 }
+
+// PDF Export Handler
+const downloadPdfBtn = document.getElementById('downloadPdfBtn');
+const download3mfBtn = document.getElementById('download3mfBtn');
+
+downloadPdfBtn.addEventListener('click', async () => {
+  if (!lastResult) return;
+
+  downloadPdfBtn.disabled = true;
+  const originalText = downloadPdfBtn.innerHTML;
+  downloadPdfBtn.innerHTML =
+    '<span class="material-symbols-outlined animate-spin text-lg">sync</span><span class="text-[10px] font-bold pr-1">PDF</span>';
+
+  try {
+    const stats = diceRenderer.getDiceStats(lastResult.diceLevels);
+    const metadata = {
+      gridWidth: lastResult.gridWidth,
+      gridHeight: lastResult.gridHeight,
+      totalDice: lastResult.totalDice,
+      stats: stats,
+      colors: {
+        dieColor: currentSettings.dieColor,
+        pointColor: currentSettings.pointColor,
+      },
+    };
+
+    await pdfExporter.exportProject(diceCanvas, originalCanvas, metadata);
+  } catch (error) {
+    console.error('Error exporting PDF:', error);
+    alert('Error generating PDF. Please try again.');
+  } finally {
+    downloadPdfBtn.disabled = false;
+    downloadPdfBtn.innerHTML = originalText;
+  }
+});
+
+// 3MF Export Handler
+download3mfBtn.addEventListener('click', async () => {
+  if (!lastResult) return;
+
+  download3mfBtn.disabled = true;
+  const originalHtml = download3mfBtn.innerHTML;
+  download3mfBtn.innerHTML =
+    '<i data-lucide="sync" class="w-4 h-4 animate-spin"></i><span class="text-[10px] font-bold pr-1">3MF</span>';
+  lucide.createIcons();
+
+  try {
+    // Prototyping step 1: Prove project dice can be assembled
+    const blob = await exporter3mf.generate3MF(
+      lastResult.diceLevels,
+      lastResult.gridWidth,
+      lastResult.gridHeight
+    );
+    exporter3mf.saveFile(blob, 'dice-art-project.3mf');
+  } catch (error) {
+    console.error('Error exporting 3MF:', error);
+    alert('Error generating 3MF. This is a prototype.');
+  } finally {
+    download3mfBtn.disabled = false;
+    download3mfBtn.innerHTML = originalHtml;
+    lucide.createIcons();
+  }
+});
 
 // Update dice statistics
 function updateDiceStats(diceLevels) {
