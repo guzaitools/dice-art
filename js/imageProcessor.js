@@ -1,11 +1,16 @@
 /**
  * Image Processor Module
- * Handles image loading, grayscale conversion, and image adjustments
+ * Handles image loading, gray scale conversion, pixelation, and mapping to dice levels.
+ * It serves as the core pipeline for transforming raw images into dice art configurations.
  */
-
 export default class ImageProcessor {
+  /**
+   * Initializes a new ImageProcessor instance.
+   */
   constructor() {
+    /** @type {HTMLImageElement|null} The originally loaded image */
     this.originalImage = null;
+    /** @type {ImageData|null} The processed image data */
     this.processedImageData = null;
   }
 
@@ -158,62 +163,82 @@ export default class ImageProcessor {
   }
 
   /**
-   * Process the entire pipeline
+   * Initialize worker
+   */
+  initWorker() {
+    if (window.Worker) {
+      this.worker = new Worker(new URL('./workers/imageProcessor.worker.js', import.meta.url), { type: 'module' });
+    }
+  }
+
+  /**
+   * Process the entire pipeline (using Web Worker)
    * @param {HTMLCanvasElement} canvas - Canvas for processing
    * @param {number} gridSize - Grid dimensions (square)
    * @param {number} brightness - Brightness adjustment
    * @param {number} contrast - Contrast adjustment
-   * @returns {Object} Processing result with dice levels and dimensions
+   * @returns {Promise<Object>} Processing result with dice levels and dimensions
    */
   processImage(canvas, gridSize, brightness = 0, contrast = 0, showGrayscale = true) {
     if (!this.originalImage) throw new Error('No image loaded');
 
-    // Always work with grayscale data for dice mapping
-    let tempCanvas = document.createElement('canvas');
-    let grayscaleData = this.convertToGrayscale(tempCanvas, this.originalImage);
-    grayscaleData = this.applyAdjustments(grayscaleData, brightness, contrast);
+    // If no worker (fallback or not init), init it
+    if (!this.worker) this.initWorker();
 
-    // Put the requested preview version on the visual canvas
-    const ctx = canvas.getContext('2d');
-    canvas.width = this.originalImage.width;
-    canvas.height = this.originalImage.height;
-
-    if (showGrayscale) {
-      ctx.putImageData(grayscaleData, 0, 0);
-    } else {
-      // Draw color version but with same adjustments
+    return new Promise((resolve, reject) => {
+      // Get raw image data to send to worker
+      // We need an intermediate canvas to extract pixel data from the image element
+      const tempCanvas = document.createElement('canvas');
+      tempCanvas.width = this.originalImage.width;
+      tempCanvas.height = this.originalImage.height;
+      const ctx = tempCanvas.getContext('2d');
       ctx.drawImage(this.originalImage, 0, 0);
-      let colorData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-      colorData = this.applyAdjustments(colorData, brightness, contrast, false); // Adjustments without luminosity conversion
-      ctx.putImageData(colorData, 0, 0);
-    }
+      const imageData = ctx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
 
-    // Step 3: Calculate grid dimensions maintaining aspect ratio
-    const aspectRatio = this.originalImage.width / this.originalImage.height;
-    let gridWidth, gridHeight;
+      // Define message handler
+      const handler = (e) => {
+        if (e.data.type === 'success') {
+          const result = e.data.payload;
 
-    if (aspectRatio >= 1) {
-      // Landscape or square
-      gridWidth = gridSize;
-      gridHeight = Math.round(gridSize / aspectRatio);
-    } else {
-      // Portrait
-      gridHeight = gridSize;
-      gridWidth = Math.round(gridSize * aspectRatio);
-    }
+          // Update the visual canvas
+          canvas.width = result.width;
+          canvas.height = result.height;
+          const visualCtx = canvas.getContext('2d');
+          // Create ImageData from the array buffer
+          const visualImageData = new ImageData(result.visualData, result.width, result.height);
+          visualCtx.putImageData(visualImageData, 0, 0);
 
-    // Step 4: Pixelate to grid
-    const gridData = this.pixelateToGrid(grayscaleData, gridWidth, gridHeight);
+          this.worker.removeEventListener('message', handler);
+          resolve({
+            diceLevels: result.diceLevels,
+            gridWidth: result.gridWidth,
+            gridHeight: result.gridHeight,
+            totalDice: result.totalDice
+          });
+        } else if (e.data.type === 'error') {
+          this.worker.removeEventListener('message', handler);
+          reject(new Error(e.data.error));
+        }
+      };
 
-    // Step 5: Map to dice levels
-    const diceLevels = this.mapToDiceLevels(gridData);
+      this.worker.addEventListener('message', handler);
 
-    return {
-      diceLevels,
-      gridWidth,
-      gridHeight,
-      totalDice: gridWidth * gridHeight,
-    };
+      // Send data to worker
+      this.worker.postMessage({
+        type: 'process',
+        payload: {
+          imageData: imageData, // Structured clone automatically handles TypedArrays
+          gridSize,
+          brightness,
+          contrast,
+          showGrayscale
+        }
+      });
+    });
+  }
+
+  terminate() {
+    if (this.worker) this.worker.terminate();
   }
 
   /**

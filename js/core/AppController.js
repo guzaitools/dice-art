@@ -92,7 +92,7 @@ export default class AppController {
 
             // Process image
             this.uiManager.setLoading(true, 'Processing image...');
-            const result = this.imageProcessor.processImage(
+            const result = await this.imageProcessor.processImage(
                 this.uiManager.elements.originalCanvas,
                 settings.gridSize,
                 settings.brightness,
@@ -158,7 +158,7 @@ export default class AppController {
             this.uiManager.setLoading(true, 'Reprocessing...');
 
             // Reprocess image
-            const result = this.imageProcessor.processImage(
+            const result = await this.imageProcessor.processImage(
                 this.uiManager.elements.originalCanvas,
                 settings.gridSize,
                 settings.brightness,
@@ -210,7 +210,7 @@ export default class AppController {
      * @returns {string} Cache key
      */
     generateCacheKey(settings) {
-        return `${settings.gridSize}_${settings.brightness}_${settings.contrast}_${settings.sourceGrayscale}`;
+        return `${settings.gridSize}_${settings.brightness}_${settings.contrast}_${settings.sourceGrayscale}_${settings.dieColor}_${settings.pointColor}`;
     }
 
     /**
@@ -225,6 +225,38 @@ export default class AppController {
             this.resultCache.delete(firstKey);
         }
         this.resultCache.set(key, result);
+    }
+
+    /**
+     * Reset parameters to defaults but keep image
+     */
+    async resetParameters() {
+        const defaults = {
+            gridSize: DEFAULT_GRID_SIZE,
+            brightness: 0,
+            contrast: 0,
+            dieColor: DEFAULT_DIE_COLOR,
+            pointColor: DEFAULT_POINT_COLOR,
+            sourceGrayscale: true,
+            diceSize: 10,
+        };
+
+        // Update all settings
+        Object.entries(defaults).forEach(([key, value]) => {
+            this.settingsManager.updateSetting(key, value);
+        });
+
+        // Update UI Sliders
+        this.uiManager.updateSliderValue(this.uiManager.elements.gridSizeValue, defaults.gridSize);
+        this.uiManager.elements.gridSizeSlider.value = defaults.gridSize;
+
+        this.uiManager.updateSliderValue(this.uiManager.elements.brightnessValue, defaults.brightness);
+        this.uiManager.elements.brightnessSlider.value = defaults.brightness;
+
+        // Reprocess if image is loaded
+        if (this.imageProcessor.originalImage) {
+            await this.reprocessImage();
+        }
     }
 
     /**

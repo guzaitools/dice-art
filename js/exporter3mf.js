@@ -1,6 +1,7 @@
 import JSZip from 'jszip';
 import { parseModelGeometries, mergeMesh, serializeGeometry } from './utils/geometryHelpers.js';
 import { TEMPLATE_PATHS, DEFAULT_SPACING } from './constants.js';
+import { escapeXML } from './utils/xmlUtils.js';
 
 /**
  * 3MF File Exporter
@@ -206,8 +207,10 @@ export default class Exporter3MF {
       const match = projectSettings.match(diffRegex);
       if (match) {
         let keys = match[1].split(';').filter(x => x);
-        if (options.primeTower && !keys.includes("enable_prime_tower")) keys.push("enable_prime_tower");
-        if (options.raft && !keys.includes("raft_layers")) keys.push("raft_layers");
+        // Always include these keys to enforce our specific values (whether 0 or 1/2)
+        if (!keys.includes("enable_prime_tower")) keys.push("enable_prime_tower");
+        if (!keys.includes("raft_layers")) keys.push("raft_layers");
+
         // For simplicity in single plate, we just overwrite the first slot
         projectSettings = projectSettings.replace(diffRegex, `"different_settings_to_system": [\n        "${keys.join(';')}"`);
       }
@@ -377,14 +380,14 @@ export default class Exporter3MF {
       const compUuid = this.generateUUID();
       const itemUuid = this.generateUUID();
 
-      resourcesXML += `  <object id="${bodyId}" p:UUID="${this.generateUUID()}" type="model" name="Bodies-${label}">${serialize(bodyV, bodyT)}</object>\n`;
-      resourcesXML += `  <object id="${pipId}" p:UUID="${this.generateUUID()}" type="model" name="Pips-${label}">${serialize(pipV, pipT)}</object>\n`;
-      resourcesXML += `  <object id="${componentId}" p:UUID="${compUuid}" type="model" name="${label}">\n   <components>\n    <component objectid="${bodyId}" transform="1 0 0 0 1 0 0 0 1 0 0 0" p:UUID="${this.generateUUID()}"/>\n    <component objectid="${pipId}" transform="1 0 0 0 1 0 0 0 1 0 0 0" p:UUID="${this.generateUUID()}"/>\n   </components>\n  </object>\n`;
+      resourcesXML += `  <object id="${bodyId}" p:UUID="${this.generateUUID()}" type="model" name="Bodies-${escapeXML(label)}">${serialize(bodyV, bodyT)}</object>\n`;
+      resourcesXML += `  <object id="${pipId}" p:UUID="${this.generateUUID()}" type="model" name="Pips-${escapeXML(label)}">${serialize(pipV, pipT)}</object>\n`;
+      resourcesXML += `  <object id="${componentId}" p:UUID="${compUuid}" type="model" name="${escapeXML(label)}">\n   <components>\n    <component objectid="${bodyId}" transform="1 0 0 0 1 0 0 0 1 0 0 0" p:UUID="${this.generateUUID()}"/>\n    <component objectid="${pipId}" transform="1 0 0 0 1 0 0 0 1 0 0 0" p:UUID="${this.generateUUID()}"/>\n   </components>\n  </object>\n`;
 
       buildXML += `  <item objectid="${componentId}" p:UUID="${itemUuid}" transform="1 0 0 0 1 0 0 0 1 ${plateId * 300 - 150} 125 0" printable="1"/>\n`;
       platesXML += `  <plate>
     <metadata key="plater_id" value="${plateId}"/>
-    <metadata key="plater_name" value="${label}"/>
+    <metadata key="plater_name" value="${escapeXML(label)}"/>
     <metadata key="locked" value="false"/>
     <metadata key="filament_map_mode" value="Auto For Flush"/>
     <metadata key="thumbnail_file" value="Metadata/plate_${plateId}.png"/>
@@ -436,12 +439,14 @@ ${buildXML} </build>
       projectSettings = projectSettings.replace(/"raft_layers":\s*"[^"]*"/g, `"raft_layers": "${options.raft ? '2' : '0'}"`);
 
       // Update deviations list
+      // Update deviations list
       const diffRegex = /"different_settings_to_system":\s*\[\s*"([^"]*)"/;
       const match = projectSettings.match(diffRegex);
       if (match) {
         let keys = match[1].split(';').filter(x => x);
-        if (options.primeTower && !keys.includes("enable_prime_tower")) keys.push("enable_prime_tower");
-        if (options.raft && !keys.includes("raft_layers")) keys.push("raft_layers");
+        // Always include keys to enforce values
+        if (!keys.includes("enable_prime_tower")) keys.push("enable_prime_tower");
+        if (!keys.includes("raft_layers")) keys.push("raft_layers");
 
         // In multi-plate, we need to match the plate count. 
         // For now, let's follow the commit's logic of patching the first string.
@@ -461,7 +466,7 @@ ${buildXML} </build>
 
     const modelSettingsXML = `<?xml version="1.0" encoding="UTF-8"?>
 <config>
-${plateConfigs.map(p => `  <object id="${p.componentId}"><metadata key="name" value="${p.label}"/>
+${plateConfigs.map(p => `  <object id="${p.componentId}"><metadata key="name" value="${escapeXML(p.label)}"/>
     <part id="${p.bodyId}" subtype="normal_part"><metadata key="name" value="Bodies"/><metadata key="matrix" value="1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1"/><metadata key="extruder" value="2"/><metadata key="identify_id" value="${p.plateId * 10 + 1}"/></part>
     <part id="${p.pipId}" subtype="normal_part"><metadata key="name" value="Pips"/><metadata key="matrix" value="1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1"/><metadata key="extruder" value="1"/><metadata key="identify_id" value="${p.plateId * 10 + 2}"/></part>
   </object>`).join('\n')}

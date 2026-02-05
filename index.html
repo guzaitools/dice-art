@@ -9,7 +9,9 @@
   <!-- PWA Meta Tags -->
   <link rel="manifest" href="manifest.json" />
   <meta name="theme-color" content="#050208" />
-  <link rel="icon" type="image/png" href="assets/icons/favicon.png" />
+  <link rel="icon" type="image/png" href="/assets/favicon.png" />
+  <meta http-equiv="Content-Security-Policy"
+    content="default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline' blob: https://cdn.tailwindcss.com https://unpkg.com; style-src 'self' 'unsafe-inline' https://unpkg.com; img-src 'self' data: blob:; worker-src 'self' blob:;">
   <link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png" />
 
   <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
@@ -301,7 +303,7 @@
                 </button>
                 <div class="w-px h-8 bg-white/10 mx-1"></div>
                 <button id="exportMultiPlateBtn" title="Original Multi-Plate Export"
-                  class="p-2 bg-white/5 border border-white/10 rounded-xl hover:bg-white/10 hover:border-white/20 transition-all text-white flex items-center gap-2 group">
+                  class="p-2 bg-white/5 border border-white/10 rounded-xl hover:bg-white/10 hover:border-white/20 transition-all text-white flex items-center gap-2 group hidden">
                   <i data-lucide="layers" class="w-4 h-4 text-primary"></i>
                   <span class="text-[10px] font-bold pr-1">MULTI-PLATE</span>
                 </button>
@@ -354,6 +356,7 @@
 
               <!-- Dice Size & Grayscale -->
               <div class="border-t border-white/5 pt-6 space-y-4">
+                <!-- Color Selectors Hidden
                 <div class="flex justify-between items-center">
                   <span class="text-[9px] uppercase tracking-[0.3em] text-gray-400 font-black">Dice Color</span>
                   <div id="dieColorSelectors" class="flex gap-1.5">
@@ -385,6 +388,9 @@
                     <input type="hidden" id="pointColor" value="#ffffff" />
                   </div>
                 </div>
+                -->
+                <input type="hidden" id="dieColor" value="#000000" />
+                <input type="hidden" id="pointColor" value="#ffffff" />
 
                 <div class="flex justify-between items-center">
                   <span class="text-[9px] uppercase tracking-[0.3em] text-gray-400 font-black">Grayscale Preview</span>

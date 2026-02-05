@@ -176,7 +176,7 @@ function setupEventListeners() {
 
   // Reset button
   domElements.resetBtn.addEventListener('click', () => {
-    app.reset();
+    app.resetParameters();
   });
 
   // Comparison slider
@@ -229,7 +229,17 @@ function setupExportButtons() {
       if (window.lucide) window.lucide.createIcons();
 
       try {
-        await app.handleExport('pdf');
+        const blob = await app.handleExport('pdf', { autoSave: false });
+        if (blob) {
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = 'dice-art-instructions.pdf';
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+        }
       } catch (error) {
         alert('Error generating PDF');
       } finally {
@@ -282,17 +292,28 @@ function setupExportButtons() {
   // Confirm 3MF export from modal
   if (domElements.confirmExportBtn) {
     domElements.confirmExportBtn.addEventListener('click', async () => {
-      const primeTower = document.getElementById('primeTower')?.checked || false;
-      const raft = document.getElementById('raft')?.checked || false;
+      const primeTower = document.getElementById('modalPrimeTower')?.checked || false;
+      const raft = document.getElementById('modalRaft')?.checked || true;
+      const spacing = document.getElementById('modalSpacing')?.checked || false;
 
       const btn = domElements.confirmExportBtn;
-      const spinner = btn.querySelector('.loading-spinner');
+      const spinner = document.getElementById('exportSpinner');
       btn.disabled = true;
       if (spinner) spinner.classList.remove('hidden');
 
       try {
-        await app.handleExport('3mf', { primeTower, raft });
-        closeModal();
+        const blob = await app.handleExport('3mf', { primeTower, raft, spacing, autoSave: false });
+        if (blob) {
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = 'dice-art-model.3mf';
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+        }
+        // closeModal(); // Fix: Keep modal open for multiple downloads
       } catch (error) {
         alert('Error generating 3D Print 3MF');
       } finally {
@@ -312,7 +333,17 @@ function setupExportButtons() {
       if (window.lucide) window.lucide.createIcons();
 
       try {
-        await app.handleExport('pdf');
+        const blob = await app.handleExport('pdf', { autoSave: false });
+        if (blob) {
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = 'dice-art-instructions.pdf';
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+        }
       } catch (error) {
         alert('Error generating PDF');
       } finally {
@@ -333,7 +364,17 @@ function setupExportButtons() {
       if (window.lucide) window.lucide.createIcons();
 
       try {
-        await app.handleExport('scad');
+        const blob = await app.handleExport('scad', { autoSave: false });
+        if (blob) {
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = 'dice-art-script.scad';
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+        }
       } catch (error) {
         alert('Error generating OpenSCAD');
       } finally {

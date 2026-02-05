@@ -11,7 +11,7 @@ import {
     DEFAULT_DIE_COLOR,
     DEFAULT_POINT_COLOR,
     DICE_SIZE_OPTIONS
-} from './constants.js';
+} from '../constants.js';
 
 /**
  * Validates and sanitizes a hex color string

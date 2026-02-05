@@ -64,9 +64,8 @@ export default class UIManager {
             li.innerHTML = `
         <span class="flex items-center gap-2">
           <img src="assets/dice/dice-${i}.png" alt="Dice ${i}" class="w-6 h-6">
-          <span>Dice ${i}</span>
+          <span class="text-gray-400 font-mono">${count}</span>
         </span>
-        <span class="text-gray-400">${count} (${percentage}%)</span>
       `;
             this.elements.diceStatsList.appendChild(li);
         }

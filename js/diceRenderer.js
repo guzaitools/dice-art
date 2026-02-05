@@ -96,6 +96,12 @@ export default class DiceRenderer {
     });
   }
 
+  /**
+   * Convert hex color to RGB object
+   * @param {string} hex - Hex color string
+   * @returns {{r: number, g: number, b: number}} RGB object
+   * @private
+   */
   _hexToRgb(hex) {
     const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
     return result
@@ -109,6 +115,11 @@ export default class DiceRenderer {
 
   /**
    * Render the dice art grid on canvas using tinted images
+   * @param {HTMLCanvasElement} canvas - Target canvas
+   * @param {Uint8Array} diceLevels - Array of dice levels
+   * @param {number} gridWidth - Grid width
+   * @param {number} gridHeight - Grid height
+   * @param {number} [maxCanvasSize=1200] - Max canvas size in pixels
    */
   renderDiceGrid(canvas, diceLevels, gridWidth, gridHeight, maxCanvasSize = 1200) {
     if (!this.imagesLoaded) throw new Error('Dice images not loaded');

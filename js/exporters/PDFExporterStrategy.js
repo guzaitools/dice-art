@@ -37,7 +37,11 @@ export default class PDFExporterStrategy extends ExporterStrategy {
         const diceImgData = data.diceCanvas.toDataURL('image/jpeg', 0.95);
         const mosaicWidth = pageWidth - PDF_PAGE_MARGIN * 2;
         const mosaicHeight = (data.diceCanvas.height * mosaicWidth) / data.diceCanvas.width;
-        const mosaicY = pageHeight / 2 - mosaicHeight / 2 + 10;
+
+        // Calculate Y position to be centered but safely below logo
+        const logoBottomLimit = PDF_LOGO_TOP_MARGIN + (pageWidth / 2.5 * 0.4) + 10; // Approx logo height + margin
+        const centeredY = pageHeight / 2 - mosaicHeight / 2 + 10;
+        const mosaicY = Math.max(centeredY, logoBottomLimit);
 
         doc.addImage(diceImgData, 'JPEG', PDF_PAGE_MARGIN, mosaicY, mosaicWidth, mosaicHeight);
 
@@ -47,25 +51,24 @@ export default class PDFExporterStrategy extends ExporterStrategy {
         // Footer
         this.addFooter(doc, pageHeight, pageWidth, 1);
 
-        // --- Page 2: Original Image ---
+        // --- Page 2: Original Image & Metadata ---
         doc.addPage();
         doc.setFillColor(255, 255, 255);
         doc.rect(0, 0, pageWidth, pageHeight, 'F');
 
-        await this.addLogo(doc, pageWidth);
-
+        // Original Image (Top Left)
         const originalImgData = data.originalCanvas.toDataURL('image/jpeg', 0.95);
-        const originalWidth = pageWidth - PDF_PAGE_MARGIN * 2;
+        const originalWidth = pageWidth * 0.2; // 20% width
         const originalHeight = (data.originalCanvas.height * originalWidth) / data.originalCanvas.width;
-        const originalY = pageHeight / 2 - originalHeight / 2 + 10;
+        const originalY = PDF_PAGE_MARGIN;
 
         doc.addImage(originalImgData, 'JPEG', PDF_PAGE_MARGIN, originalY, originalWidth, originalHeight);
 
-        this.addFooter(doc, pageHeight, pageWidth, 2);
+        // Metadata (Below Image)
+        const metadataY = originalY + originalHeight + 20;
+        this.addMetadata(doc, data, metadataY);
 
-        // --- Page 3: Instructions ---
-        doc.addPage();
-        this.addInstructionsPage(doc, pageWidth, pageHeight, data);
+        this.addFooter(doc, pageHeight, pageWidth, 2);
 
         return doc.output('blob');
     }
@@ -87,15 +90,17 @@ export default class PDFExporterStrategy extends ExporterStrategy {
                 });
 
                 if (loaded && logoImg.naturalWidth > 0) {
-                    const logoWidth = pageWidth * PDF_LOGO_WIDTH_RATIO;
+                    const logoWidth = pageWidth / 5;
                     const logoHeight = (logoImg.height * logoWidth) / logoImg.width;
                     const logoX = (pageWidth - logoWidth) / 2;
+                    // Fix: Use constant margin (15mm)
                     doc.addImage(logoImg, 'PNG', logoX, PDF_LOGO_TOP_MARGIN, logoWidth, logoHeight);
                     break;
                 }
             }
 
             if (!loaded) {
+                // ... title fallback ...
                 doc.setTextColor(0, 0, 0);
                 doc.setFont('helvetica', 'bold');
                 doc.setFontSize(18);
@@ -135,7 +140,60 @@ export default class PDFExporterStrategy extends ExporterStrategy {
         doc.setFontSize(8);
         doc.setFont('helvetica', 'normal');
         doc.setTextColor(100, 100, 100);
-        doc.text(`Page ${pageNum}`, pageWidth / 2, pageHeight - 10, { align: 'center' });
+        const footerText = `create your own dice art at diceart.gustaviano.online`;
+        doc.text(footerText, PDF_PAGE_MARGIN, pageHeight - 10);
+        doc.text(`Page ${pageNum}`, pageWidth - PDF_PAGE_MARGIN, pageHeight - 10, { align: 'right' });
+    }
+
+    /**
+     * Add metadata to page (Now used on Page 2)
+     */
+    addMetadata(doc, data, startY) {
+        doc.setFontSize(14);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(0, 0, 0);
+        doc.text('PROJECT METADATA', PDF_PAGE_MARGIN, startY);
+
+        doc.setDrawColor(0, 0, 0);
+        doc.setLineWidth(0.2);
+        doc.line(PDF_PAGE_MARGIN, startY + 3, doc.internal.pageSize.getWidth() - PDF_PAGE_MARGIN, startY + 3);
+
+        doc.setFontSize(10);
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(60, 60, 60);
+
+        let y = startY + 15;
+        doc.text(`Dimensions:`, PDF_PAGE_MARGIN, y);
+        doc.setTextColor(0, 0, 0);
+        doc.text(`${data.gridWidth} columns x ${data.gridHeight} rows`, PDF_PAGE_MARGIN + 40, y);
+
+        y += 8;
+        doc.setTextColor(60, 60, 60);
+        doc.text(`Total Dice:`, PDF_PAGE_MARGIN, y);
+        doc.setTextColor(0, 0, 0);
+        doc.text(`${(data.gridWidth * data.gridHeight).toLocaleString()}`, PDF_PAGE_MARGIN + 40, y);
+
+        // Dice Counts
+        y += 15;
+        doc.setFont('helvetica', 'bold');
+        doc.text('DICE INVENTORY', PDF_PAGE_MARGIN, y);
+        y += 5;
+        doc.line(PDF_PAGE_MARGIN, y, doc.internal.pageSize.getWidth() - PDF_PAGE_MARGIN, y);
+        y += 10;
+
+        // Calculate stats on the fly if not provided
+        const stats = [0, 0, 0, 0, 0, 0];
+        data.diceLevels.forEach(l => { if (l >= 1 && l <= 6) stats[l - 1]++ });
+
+        doc.setFont('helvetica', 'normal');
+        stats.forEach((count, index) => {
+            const face = index + 1;
+            doc.setTextColor(60, 60, 60);
+            doc.text(`Dice with Face ${face}:`, PDF_PAGE_MARGIN, y);
+            doc.setTextColor(0, 0, 0);
+            doc.text(`${count.toLocaleString()}`, PDF_PAGE_MARGIN + 40, y);
+            y += 7;
+        });
     }
 
     /**
