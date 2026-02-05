@@ -269,7 +269,7 @@ export default class Exporter3MF {
     <metadata key="locked" value="false"/>
     <metadata key="filament_map_mode" value="Auto For Flush"/>
     <metadata key="thumbnail_file" value="Metadata/plate_1.png"/>
-    <metadata key="thumbnail_no_light_file" value="Metadata/plate_no_light_${plateIdStr}1.png"/>
+    <metadata key="thumbnail_no_light_file" value="Metadata/plate_no_light_1.png"/>
     <metadata key="top_file" value="Metadata/top_1.png"/>
     <metadata key="pick_file" value="Metadata/pick_1.png"/>
     <model_instance>
@@ -293,7 +293,7 @@ export default class Exporter3MF {
     zip.file("[Content_Types].xml", contentTypesXML);
     zip.file("_rels/.rels", relsXML);
     zip.file("3D/3dmodel.model", modelXML);
-    zip.file("Metadata/model_settings.config", modelSettingsXML.replace('${plateIdStr}', '')); // Correcting potentially undefined var
+    zip.file("Metadata/model_settings.config", modelSettingsXML);
     if (projectSettings) zip.file("Metadata/project_settings.config", projectSettings);
     zip.file("Metadata/filament_sequence.json", JSON.stringify({ plate_1: { sequence: [] } }));
     zip.file("Metadata/slice_info.config", `<?xml version="1.0" encoding="UTF-8"?><config><header><header_item key="X-BBL-Client-Type" value="slicer"/><header_item key="X-BBL-Client-Version" value="02.05.00.66"/></header></config>`);
