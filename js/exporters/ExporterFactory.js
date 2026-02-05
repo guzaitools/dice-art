@@ -5,7 +5,6 @@
 
 import PDFExporterStrategy from './PDFExporterStrategy.js';
 import ThreeMFExporterStrategy from './ThreeMFExporterStrategy.js';
-import SCADExporterStrategy from './SCADExporterStrategy.js';
 
 export default class ExporterFactory {
     constructor() {
@@ -19,7 +18,6 @@ export default class ExporterFactory {
     registerDefaultExporters() {
         this.register('pdf', new PDFExporterStrategy());
         this.register('3mf', new ThreeMFExporterStrategy());
-        this.register('scad', new SCADExporterStrategy());
     }
 
     /**

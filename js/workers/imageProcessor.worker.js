@@ -6,6 +6,7 @@
 self.onmessage = function (e) {
     if (e.data.type === 'process') {
         try {
+            const { imageData, gridSize, brightness, contrast, showGrayscale, invertOrder } = e.data.payload;
             const result = processImage(imageData, gridSize, brightness, contrast, showGrayscale, invertOrder);
 
             // Use Transferable for the result buffer

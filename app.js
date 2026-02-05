@@ -48,7 +48,6 @@ const domElements = {
   downloadPdfBtn: document.getElementById('downloadPdfBtn'),
   export3dPrintBtn: document.getElementById('export3dPrintBtn'),
   exportMultiPlateBtn: document.getElementById('exportMultiPlateBtn'),
-  downloadScadBtn: document.getElementById('downloadScadBtn'),
   modalDownloadPdfBtn: document.getElementById('modalDownloadPdfBtn'),
 
   // Modal

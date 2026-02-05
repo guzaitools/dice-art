@@ -1,0 +1,195 @@
+@font-face {
+    font-family: 'Space Grotesk';
+    src: url('/fonts/space-grotesk/SpaceGrotesk.ttf') format('truetype');
+    font-weight: 300 700;
+    font-display: swap;
+}
+
+body {
+    background-color: #050208;
+    color: white;
+    font-family: 'Space Grotesk', sans-serif;
+    margin: 0;
+    padding: 0;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow-x: hidden;
+}
+
+.glass-panel {
+    background: rgba(0, 0, 0, 0.65) !important;
+    backdrop-filter: blur(40px) !important;
+    -webkit-backdrop-filter: blur(40px) !important;
+    border: 1px solid rgba(255, 255, 255, 0.12) !important;
+    border-radius: 2rem;
+    pointer-events: auto !important;
+}
+
+.bokeh {
+    position: fixed;
+    border-radius: 50%;
+    filter: blur(120px);
+    z-index: -1;
+    pointer-events: none;
+}
+
+.comparison-slider-container {
+    position: relative;
+    width: 100%;
+    height: 75vh;
+    background: #000;
+    border-radius: 2.5rem;
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.comparison-input {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+    cursor: ew-resize;
+    z-index: 30;
+    margin: 0;
+}
+
+.dice-wrapper {
+    position: absolute;
+    inset: 0;
+    z-index: 20;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1.5rem;
+    clip-path: inset(0 50% 0 0);
+}
+
+.original-wrapper {
+    position: absolute;
+    inset: 0;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1.5rem;
+    background: rgba(0, 0, 0, 0.5);
+}
+
+.comparison-line {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: white;
+    box-shadow: 0 0 20px rgba(255, 255, 255, 0.4);
+    z-index: 35;
+    left: 50%;
+    transform: translateX(-50%);
+    pointer-events: none;
+}
+
+.comparison-handle {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 48px;
+    height: 48px;
+    background: rgba(255, 255, 255, 0.15);
+    backdrop-filter: blur(12px);
+    border: 2px solid rgba(255, 255, 255, 0.6);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 40;
+    pointer-events: none;
+    color: white;
+}
+
+.handle-triangles {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+}
+
+.triangle-left {
+    width: 0;
+    height: 0;
+    border-top: 6px solid transparent;
+    border-bottom: 6px solid transparent;
+    border-right: 8px solid white;
+}
+
+.triangle-right {
+    width: 0;
+    height: 0;
+    border-top: 6px solid transparent;
+    border-bottom: 6px solid transparent;
+    border-left: 8px solid white;
+}
+
+.hidden {
+    display: none !important;
+}
+
+#floatingControls {
+    z-index: 150 !important;
+}
+
+/* Tooltip-like color indicator */
+.color-dot {
+    width: 14px;
+    height: 14px;
+    border-radius: 4px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+/* Toggle Switch Custom */
+.switch {
+    position: relative;
+    display: inline-block;
+    width: 40px;
+    height: 20px;
+}
+
+.switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.slider-toggle {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #333;
+    transition: 0.4s;
+    border-radius: 20px;
+}
+
+.slider-toggle:before {
+    position: absolute;
+    content: '';
+    height: 14px;
+    width: 14px;
+    left: 3px;
+    bottom: 3px;
+    background-color: white;
+    transition: 0.4s;
+    border-radius: 50%;
+}
+
+input:checked+.slider-toggle {
+    background-color: #8c25f4;
+}
+
+input:checked+.slider-toggle:before {
+    transform: translateX(20px);
+}

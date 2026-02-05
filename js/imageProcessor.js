@@ -223,18 +223,24 @@ export default class ImageProcessor {
 
       this.worker.addEventListener('message', handler);
 
-      // Send data to worker
+      // Use Transferable objects for performance (don't copy the buffer)
+      const buffer = imageData.data.buffer;
+
       this.worker.postMessage({
         type: 'process',
         payload: {
-          imageData: imageData, // Structured clone automatically handles TypedArrays
+          imageData: {
+            width: imageData.width,
+            height: imageData.height,
+            data: imageData.data
+          },
           gridSize,
           brightness,
           contrast,
           showGrayscale,
           invertOrder
         }
-      });
+      }, [buffer]);
     });
   }
 
