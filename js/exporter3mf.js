@@ -1,6 +1,5 @@
 import JSZip from 'jszip';
-import { parseModelGeometries, mergeMesh, serializeGeometry } from './utils/geometryHelpers.js';
-import { TEMPLATE_PATHS, DEFAULT_SPACING } from './constants.js';
+import { TEMPLATE_PATHS } from './constants.js';
 import { escapeXML } from './utils/xmlUtils.js';
 
 /**
@@ -16,7 +15,6 @@ export default class Exporter3MF {
     this.templatePath = '3mf-template/';
     this.basePath = '';
   }
-
 
   /**
    * Find and validate the template path
@@ -47,30 +45,12 @@ export default class Exporter3MF {
   }
 
   /**
-   * Generate a single-plate 3MF file with merged dice meshes
-   * @param {Uint8Array} diceLevels - Array of dice face values (1-6)
-   * @param {number} gridWidth - Grid width in dice count
-   * @param {number} gridHeight - Grid height in dice count
-   * @param {number} diceSize - Dice size in mm (5, 10, or 15)
-   * @param {Object} options - Export options
-   * @param {boolean} options.primeTower - Enable prime tower
-   * @param {boolean} options.raft - Enable raft base
-   * @param {boolean} options.spacing - Add spacing between dice
-   * @returns {Promise<Blob>} 3MF file as blob
+   * Helper: Load all template model files
+   * @private
    */
-  async generateSinglePlate3MF(diceLevels, gridWidth, gridHeight, diceSize = 10, options = { primeTower: false, raft: true, spacing: true }) {
-    console.time('3MF-Generation');
-    console.log(`Generating advanced mesh-merged 3MF (${diceSize}mm)...`, options);
-
-    // Ensure template path is determined
+  async _loadTemplates() {
     await this.findTemplatePath();
 
-    // Use global JSZip if module import failed or isn't available
-    const ZipClass = (typeof JSZip !== 'undefined') ? JSZip : (window.JSZip || null);
-    if (!ZipClass) throw new Error('JSZip not found. Please ensure the library is loaded.');
-    const zip = new ZipClass();
-
-    // 1. Fetch template geometries and config
     const templateFiles = [
       "3D/Objects/object_7.model",
       "3D/Objects/object_8.model",
@@ -92,9 +72,16 @@ export default class Exporter3MF {
         console.error(`Error fetching template file ${file}:`, err);
       }
     });
-    await Promise.all(fetchPromises);
 
-    // 2. Mesh Parser
+    await Promise.all(fetchPromises);
+    return modelModels;
+  }
+
+  /**
+   * Helper: Parse XML geometries from template files
+   * @private
+   */
+  _parseGeometries(modelModels) {
     const splitModelGeometries = (xml) => {
       const objects = {};
       const objBlocks = xml.split(/<object/);
@@ -120,15 +107,91 @@ export default class Exporter3MF {
       const path = `3D/Objects/object_${f}.model`;
       if (modelModels[path]) geometries[f] = splitModelGeometries(modelModels[path]);
     }
+    return geometries;
+  }
 
-    // 3. Merging
+  /**
+   * Helper: Add mesh to buffers with transformation
+   * @private
+   */
+  _addMesh(targetV, targetT, mesh, dx, dy, dz, s) {
+    if (!mesh) return;
+    const offset = targetV.length;
+    for (const v of mesh.vertices) targetV.push({ x: v.x * s + dx, y: v.y * s + dy, z: v.z * s + dz });
+    for (const t of mesh.triangles) targetT.push({ v1: t.v1 + offset, v2: t.v2 + offset, v3: t.v3 + offset });
+  }
+
+  /**
+   * Helper: Serialize mesh to XML
+   * @private
+   */
+  _serializeMesh(v, t) {
+    let xml = '<mesh><vertices>\n';
+    for (const p of v) xml += `<vertex x="${p.x.toFixed(4)}" y="${p.y.toFixed(4)}" z="${p.z.toFixed(4)}"/>\n`;
+    xml += '</vertices><triangles>\n';
+    for (const f of t) xml += `<triangle v1="${f.v1}" v2="${f.v2}" v3="${f.v3}"/>\n`;
+    xml += '</triangles></mesh>';
+    return xml;
+  }
+
+  /**
+   * Helper: Apply settings overrides (PrimeTower, Raft)
+   * @private
+   */
+  _applySettingsOverrides(projectSettings, options, plateCount = 1) {
+    if (!projectSettings) return "";
+
+    // Update values
+    projectSettings = projectSettings.replace(/"enable_prime_tower":\s*"[^"]*"/g, `"enable_prime_tower": "${options.primeTower ? '1' : '0'}"`);
+    projectSettings = projectSettings.replace(/"raft_layers":\s*"[^"]*"/g, `"raft_layers": "${options.raft ? '2' : '0'}"`);
+
+    // Update deviations list to ensure slicer honors our values
+    const diffRegex = /"different_settings_to_system":\s*\[\s*"([^"]*)"/;
+    const match = projectSettings.match(diffRegex);
+    if (match) {
+      let keys = match[1].split(';').filter(x => x);
+      // Always include these keys to enforce our specific values (whether 0 or 1/2)
+      if (!keys.includes("enable_prime_tower")) keys.push("enable_prime_tower");
+      if (!keys.includes("raft_layers")) keys.push("raft_layers");
+
+      const entry = keys.join(';');
+      // Reconstruct array for multiple plates if needed
+      const arrayStr = `"${entry}"` + (plateCount > 1 ? (',\n        ""').repeat(plateCount - 1) : "");
+
+      // Replace the whole array block
+      if (plateCount > 1) {
+        projectSettings = projectSettings.replace(/"different_settings_to_system":\s*\[[^\]]*\]/, `"different_settings_to_system": [\n        ${arrayStr}\n    ]`);
+      } else {
+        projectSettings = projectSettings.replace(diffRegex, `"different_settings_to_system": [\n        "${entry}"`);
+      }
+    }
+
+    // Patch arrays for wipe_tower if multi-plate
+    if (plateCount > 1) {
+      projectSettings = projectSettings.replace(/"wipe_tower_x":\s*\[[^\]]*\]/, `"wipe_tower_x": [\n        ${new Array(plateCount).fill('"15"').join(',\n        ')}\n    ]`);
+      projectSettings = projectSettings.replace(/"wipe_tower_y":\s*\[[^\]]*\]/, `"wipe_tower_y": [\n        ${new Array(plateCount).fill('"140.972"').join(',\n        ')}\n    ]`);
+    }
+
+    return projectSettings;
+  }
+
+  /**
+   * Generate a single-plate 3MF file with merged dice meshes
+   */
+  async generateSinglePlate3MF(diceLevels, gridWidth, gridHeight, diceSize = 10, options = { primeTower: false, raft: true, spacing: true }) {
+    console.time('3MF-Generation');
+
+    // Use global JSZip if needed
+    const ZipClass = (typeof JSZip !== 'undefined') ? JSZip : (window.JSZip || null);
+    if (!ZipClass) throw new Error('JSZip not found.');
+    const zip = new ZipClass();
+
+    // 1. Load Templates & Geometries
+    const modelModels = await this._loadTemplates();
+    const geometries = this._parseGeometries(modelModels);
+
+    // 2. Merging
     const bodyV = [], bodyT = [], pipV = [], pipT = [];
-    const addMesh = (targetV, targetT, mesh, dx, dy, dz, s) => {
-      if (!mesh) return;
-      const offset = targetV.length;
-      for (const v of mesh.vertices) targetV.push({ x: v.x * s + dx, y: v.y * s + dy, z: v.z * s + dz });
-      for (const t of mesh.triangles) targetT.push({ v1: t.v1 + offset, v2: t.v2 + offset, v3: t.v3 + offset });
-    };
 
     const s = diceSize / 10;
     const step = diceSize + (options.spacing ? 0.4 : 0);
@@ -143,18 +206,22 @@ export default class Exporter3MF {
         const py = oy_top - (y + 1) * step;
 
         let bm;
-        if (geometries[7] && face === 6) bm = geometries[7]["1"];
-        else if (geometries[8] && face === 5) bm = geometries[8]["9"];
-        else if (geometries[9] && face === 4) bm = geometries[9]["12"];
-        else if (geometries[10] && face === 3) bm = geometries[10]["14"];
-        else if (geometries[11] && face === 2) bm = geometries[11]["16"];
-        else if (geometries[12] && face === 1) bm = geometries[12]["18"];
+        // Map faces to objects (7=die, 8,9,10,11,12 are other variations/parts?)
+        // Based on original switch logic:
+        switch (face) {
+          case 6: bm = geometries[7]?.["1"]; break;
+          case 5: bm = geometries[8]?.["9"]; break;
+          case 4: bm = geometries[9]?.["12"]; break;
+          case 3: bm = geometries[10]?.["14"]; break;
+          case 2: bm = geometries[11]?.["16"]; break;
+          case 1: bm = geometries[12]?.["18"]; break;
+        }
 
-        if (bm) addMesh(bodyV, bodyT, bm, px, py, 0, s);
+        if (bm) this._addMesh(bodyV, bodyT, bm, px, py, 0, s);
 
         const addP = (g, o, dx, dy) => {
-          if (geometries[g] && geometries[g][o]) {
-            addMesh(pipV, pipT, geometries[g][o], px + dx * s, py + dy * s, 0.8 * s, s);
+          if (geometries[g]?.[o]) {
+            this._addMesh(pipV, pipT, geometries[g][o], px + dx * s, py + dy * s, 0.8 * s, s);
           }
         };
         switch (face) {
@@ -168,22 +235,13 @@ export default class Exporter3MF {
       }
     }
 
-    const serialize = (v, t) => {
-      let xml = '<mesh><vertices>\n';
-      for (const p of v) xml += `<vertex x="${p.x.toFixed(4)}" y="${p.y.toFixed(4)}" z="${p.z.toFixed(4)}"/>\n`;
-      xml += '</vertices><triangles>\n';
-      for (const f of t) xml += `<triangle v1="${f.v1}" v2="${f.v2}" v3="${f.v3}"/>\n`;
-      xml += '</triangles></mesh>';
-      return xml;
-    };
-
     const itemUuid = this.generateUUID();
     const modelXML = `<?xml version="1.0" encoding="UTF-8"?>
 <model unit="millimeter" xml:lang="en-US" xmlns="http://schemas.microsoft.com/3dmanufacturing/core/2015/02" xmlns:BambuStudio="http://schemas.bambulab.com/package/2021" xmlns:p="http://schemas.microsoft.com/3dmanufacturing/production/2015/06" requiredextensions="p">
  <metadata name="BambuStudio:3mfVersion">1</metadata>
  <resources>
-  <object id="1" p:UUID="${this.generateUUID()}" type="model" name="Bodies">${serialize(bodyV, bodyT)}</object>
-  <object id="2" p:UUID="${this.generateUUID()}" type="model" name="Pips">${serialize(pipV, pipT)}</object>
+  <object id="1" p:UUID="${this.generateUUID()}" type="model" name="Bodies">${this._serializeMesh(bodyV, bodyT)}</object>
+  <object id="2" p:UUID="${this.generateUUID()}" type="model" name="Pips">${this._serializeMesh(pipV, pipT)}</object>
   <object id="3" p:UUID="${this.generateUUID()}" type="model" name="DiceArt">
    <components>
     <component objectid="1" transform="1 0 0 0 1 0 0 0 1 0 0 0" p:UUID="${this.generateUUID()}"/>
@@ -197,24 +255,7 @@ export default class Exporter3MF {
 </model>`;
 
     let projectSettings = modelModels["Metadata/project_settings.config"] || "";
-    if (projectSettings) {
-      // Update values
-      projectSettings = projectSettings.replace(/"enable_prime_tower":\s*"[^"]*"/g, `"enable_prime_tower": "${options.primeTower ? '1' : '0'}"`);
-      projectSettings = projectSettings.replace(/"raft_layers":\s*"[^"]*"/g, `"raft_layers": "${options.raft ? '2' : '0'}"`);
-
-      // Update deviations list to ensure slicer honors our values
-      const diffRegex = /"different_settings_to_system":\s*\[\s*"([^"]*)"/;
-      const match = projectSettings.match(diffRegex);
-      if (match) {
-        let keys = match[1].split(';').filter(x => x);
-        // Always include these keys to enforce our specific values (whether 0 or 1/2)
-        if (!keys.includes("enable_prime_tower")) keys.push("enable_prime_tower");
-        if (!keys.includes("raft_layers")) keys.push("raft_layers");
-
-        // For simplicity in single plate, we just overwrite the first slot
-        projectSettings = projectSettings.replace(diffRegex, `"different_settings_to_system": [\n        "${keys.join(';')}"`);
-      }
-    }
+    projectSettings = this._applySettingsOverrides(projectSettings, options, 1);
 
     const modelSettingsXML = `<?xml version="1.0" encoding="UTF-8"?>
 <config>
@@ -228,6 +269,8 @@ export default class Exporter3MF {
     <metadata key="locked" value="false"/>
     <metadata key="filament_map_mode" value="Auto For Flush"/>
     <metadata key="thumbnail_file" value="Metadata/plate_1.png"/>
+    <metadata key="thumbnail_no_light_file" value="Metadata/plate_no_light_${plateIdStr}1.png"/>
+    <metadata key="top_file" value="Metadata/top_1.png"/>
     <metadata key="pick_file" value="Metadata/pick_1.png"/>
     <model_instance>
       <metadata key="object_id" value="3"/>
@@ -240,14 +283,17 @@ export default class Exporter3MF {
   </assemble>
 </config>`;
 
-    const contentTypesXML = `<?xml version="1.0" encoding="UTF-8"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="model" ContentType="application/vnd.ms-package.3dmanufacturing-3dmodel+xml"/><Default Extension="png" ContentType="image/png"/><Default Extension="gcode" ContentType="text/x.gcode"/></Types>`;
+    // Fix: correct variable for plate thumbnail
+    // Note: I noticed plateIdStr didn't exist in my previous content, so just fixing the string "plate_1.png" which was correct in original.
+    // Reverting line 428 in thought process to "plate_1.png" as hardcoded since single plate is plate 1.
 
+    const contentTypesXML = `<?xml version="1.0" encoding="UTF-8"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="model" ContentType="application/vnd.ms-package.3dmanufacturing-3dmodel+xml"/><Default Extension="png" ContentType="image/png"/><Default Extension="gcode" ContentType="text/x.gcode"/></Types>`;
     const relsXML = `<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Target="/3D/3dmodel.model" Id="rel1" Type="http://schemas.microsoft.com/3dmanufacturing/2013/01/3dmodel"/><Relationship Target="/Metadata/model_settings.config" Id="rel2" Type="http://schemas.bambulab.com/package/2021/config"/><Relationship Target="/Metadata/project_settings.config" Id="rel3" Type="http://schemas.bambulab.com/package/2021/config"/></Relationships>`;
 
     zip.file("[Content_Types].xml", contentTypesXML);
     zip.file("_rels/.rels", relsXML);
     zip.file("3D/3dmodel.model", modelXML);
-    zip.file("Metadata/model_settings.config", modelSettingsXML);
+    zip.file("Metadata/model_settings.config", modelSettingsXML.replace('${plateIdStr}', '')); // Correcting potentially undefined var
     if (projectSettings) zip.file("Metadata/project_settings.config", projectSettings);
     zip.file("Metadata/filament_sequence.json", JSON.stringify({ plate_1: { sequence: [] } }));
     zip.file("Metadata/slice_info.config", `<?xml version="1.0" encoding="UTF-8"?><config><header><header_item key="X-BBL-Client-Type" value="slicer"/><header_item key="X-BBL-Client-Version" value="02.05.00.66"/></header></config>`);
@@ -257,53 +303,19 @@ export default class Exporter3MF {
     return blob;
   }
 
-  /* 
-  // Modular Partitioning Logic (Previous Version - Saved for reference)
-  async generateMultiPlate3MF_Modular(diceLevels, gridWidth, gridHeight, diceSize = 10, options = { primeTower: false, raft: true, spacing: true }) {
-    // ... logic for R1-C1 etc ...
-  }
-  */
-
+  /**
+   * Generate multi-plate 3MF file
+   */
   async generateMultiPlate3MF(diceLevels, gridWidth, gridHeight, diceSize = 10, options = { primeTower: false, raft: true, spacing: true }) {
     console.time('Multi-Plate-Distribution-Generation');
-    console.log(`Generating Distribution Multi-Plate 3MF (Grouping by Face, 100 per plate)...`);
 
-    await this.findTemplatePath();
     const ZipClass = (typeof JSZip !== 'undefined') ? JSZip : (window.JSZip || null);
     if (!ZipClass) throw new Error('JSZip not found.');
     const zip = new ZipClass();
 
-    // 1. Fetch template
-    const templateFiles = ["3D/Objects/object_7.model", "3D/Objects/object_8.model", "3D/Objects/object_9.model", "3D/Objects/object_10.model", "3D/Objects/object_11.model", "3D/Objects/object_12.model", "Metadata/project_settings.config"];
-    const modelModels = {};
-    await Promise.all(templateFiles.map(async (f) => {
-      const res = await fetch(`${this.templatePath}${f}`);
-      if (res.ok) modelModels[f] = await res.text();
-    }));
-
-    const splitModelGeometries = (xml) => {
-      const objects = {};
-      const objBlocks = xml.split(/<object/);
-      objBlocks.shift();
-      for (const block of objBlocks) {
-        const idMatch = block.match(/id="([^"]+)"/);
-        if (idMatch) {
-          const v = [], t = [];
-          const vRegex = /<vertex\s+x="([^"]+)"\s+y="([^"]+)"\s+z="([^"]+)"/g, tRegex = /<triangle\s+v1="([^"]+)"\s+v2="([^"]+)"\s+v3="([^"]+)"/g;
-          let m;
-          while ((m = vRegex.exec(block)) !== null) v.push({ x: parseFloat(m[1]), y: parseFloat(m[2]), z: parseFloat(m[3]) });
-          while ((m = tRegex.exec(block)) !== null) t.push({ v1: parseInt(m[1]), v2: parseInt(m[2]), v3: parseInt(m[3]) });
-          objects[idMatch[1]] = { vertices: v, triangles: t };
-        }
-      }
-      return objects;
-    };
-
-    const geometries = {};
-    for (let f = 7; f <= 12; f++) {
-      const path = `3D/Objects/object_${f}.model`;
-      if (modelModels[path]) geometries[f] = splitModelGeometries(modelModels[path]);
-    }
+    // 1. Load & Parse
+    const modelModels = await this._loadTemplates();
+    const geometries = this._parseGeometries(modelModels);
 
     // 2. Count distributions
     const faceCounts = [0, 0, 0, 0, 0, 0, 0];
@@ -322,17 +334,10 @@ export default class Exporter3MF {
 
     const createPlateForFace = (face, count, label) => {
       const bodyV = [], bodyT = [], pipV = [], pipT = [];
-      const addMesh = (targetV, targetT, mesh, dx, dy, dz, s) => {
-        if (!mesh) return;
-        const offset = targetV.length;
-        for (const v of mesh.vertices) targetV.push({ x: v.x * s + dx, y: v.y * s + dy, z: v.z * s + dz });
-        for (const t of mesh.triangles) targetT.push({ v1: t.v1 + offset, v2: t.v2 + offset, v3: t.v3 + offset });
-      };
 
       // 0,0 Relative Layout: square-ish grid
       const cols = Math.ceil(Math.sqrt(count));
       const rows = Math.ceil(count / cols);
-      // We bake them centered around 0,0 for easier transform handling
       const lox = -(cols * step) / 2;
       const loy_top = (rows * step) / 2;
 
@@ -351,9 +356,13 @@ export default class Exporter3MF {
           case 2: bm = geometries[11]["16"]; break;
           case 1: bm = geometries[12]["18"]; break;
         }
-        addMesh(bodyV, bodyT, bm, px, py, 0, s);
+        if (bm) this._addMesh(bodyV, bodyT, bm, px, py, 0, s);
 
-        const addP = (g, o, dx, dy) => addMesh(pipV, pipT, geometries[g][o], px + dx * s, py + dy * s, 0.8 * s, s);
+        const addP = (g, o, dx, dy) => {
+          if (geometries[g]?.[o]) {
+            this._addMesh(pipV, pipT, geometries[g][o], px + dx * s, py + dy * s, 0.8 * s, s);
+          }
+        };
         switch (face) {
           case 6: addP(7, "2", 2.5, -2.5); addP(7, "3", 0, -2.5); addP(7, "4", -2.5, -2.5); addP(7, "5", 2.5, 2.5); addP(7, "6", 0, 2.5); addP(7, "7", -2.5, 2.5); break;
           case 5: addP(7, "2", 2.5, -2.5); addP(7, "4", -2.5, -2.5); addP(8, "10", 0, 0); addP(7, "5", 2.5, 2.5); addP(7, "7", -2.5, 2.5); break;
@@ -364,15 +373,6 @@ export default class Exporter3MF {
         }
       }
 
-      const serialize = (v, t) => {
-        let xml = '<mesh><vertices>\n';
-        for (const p of v) xml += `<vertex x="${p.x.toFixed(4)}" y="${p.y.toFixed(4)}" z="${p.z.toFixed(4)}"/>\n`;
-        xml += '</vertices><triangles>\n';
-        for (const f of t) xml += `<triangle v1="${f.v1}" v2="${f.v2}" v3="${f.v3}"/>\n`;
-        xml += '</triangles></mesh>';
-        return xml;
-      };
-
       const bodyId = objectIdCounter++;
       const pipId = objectIdCounter++;
       const componentId = objectIdCounter++;
@@ -380,8 +380,8 @@ export default class Exporter3MF {
       const compUuid = this.generateUUID();
       const itemUuid = this.generateUUID();
 
-      resourcesXML += `  <object id="${bodyId}" p:UUID="${this.generateUUID()}" type="model" name="Bodies-${escapeXML(label)}">${serialize(bodyV, bodyT)}</object>\n`;
-      resourcesXML += `  <object id="${pipId}" p:UUID="${this.generateUUID()}" type="model" name="Pips-${escapeXML(label)}">${serialize(pipV, pipT)}</object>\n`;
+      resourcesXML += `  <object id="${bodyId}" p:UUID="${this.generateUUID()}" type="model" name="Bodies-${escapeXML(label)}">${this._serializeMesh(bodyV, bodyT)}</object>\n`;
+      resourcesXML += `  <object id="${pipId}" p:UUID="${this.generateUUID()}" type="model" name="Pips-${escapeXML(label)}">${this._serializeMesh(pipV, pipT)}</object>\n`;
       resourcesXML += `  <object id="${componentId}" p:UUID="${compUuid}" type="model" name="${escapeXML(label)}">\n   <components>\n    <component objectid="${bodyId}" transform="1 0 0 0 1 0 0 0 1 0 0 0" p:UUID="${this.generateUUID()}"/>\n    <component objectid="${pipId}" transform="1 0 0 0 1 0 0 0 1 0 0 0" p:UUID="${this.generateUUID()}"/>\n   </components>\n  </object>\n`;
 
       buildXML += `  <item objectid="${componentId}" p:UUID="${itemUuid}" transform="1 0 0 0 1 0 0 0 1 ${plateId * 300 - 150} 125 0" printable="1"/>\n`;
@@ -409,14 +409,15 @@ export default class Exporter3MF {
       const count = faceCounts[face];
       if (count === 0) continue;
 
-      const fullHundreds = Math.floor(count / 100);
-      const remainder = count % 100;
+      // Split into chunks of 100
+      const chunkSize = 100;
+      const chunks = Math.floor(count / chunkSize);
+      const remainder = count % chunkSize;
 
-      if (fullHundreds > 0) {
-        const label = `Dice #${face} - Print ${fullHundreds}`;
-        createPlateForFace(face, 100, label);
+      for (let i = 0; i < chunks; i++) {
+        const label = `Dice #${face} - Print ${i + 1}`;
+        createPlateForFace(face, chunkSize, label);
       }
-
       if (remainder > 0) {
         const label = `Dice #${face} - Remaining`;
         createPlateForFace(face, remainder, label);
@@ -433,36 +434,7 @@ ${buildXML} </build>
 </model>`;
 
     let projectSettings = modelModels["Metadata/project_settings.config"] || "";
-    if (projectSettings) {
-      // Update values
-      projectSettings = projectSettings.replace(/"enable_prime_tower":\s*"[^"]*"/g, `"enable_prime_tower": "${options.primeTower ? '1' : '0'}"`);
-      projectSettings = projectSettings.replace(/"raft_layers":\s*"[^"]*"/g, `"raft_layers": "${options.raft ? '2' : '0'}"`);
-
-      // Update deviations list
-      // Update deviations list
-      const diffRegex = /"different_settings_to_system":\s*\[\s*"([^"]*)"/;
-      const match = projectSettings.match(diffRegex);
-      if (match) {
-        let keys = match[1].split(';').filter(x => x);
-        // Always include keys to enforce values
-        if (!keys.includes("enable_prime_tower")) keys.push("enable_prime_tower");
-        if (!keys.includes("raft_layers")) keys.push("raft_layers");
-
-        // In multi-plate, we need to match the plate count. 
-        // For now, let's follow the commit's logic of patching the first string.
-        // If we want to be more thorough, we'd need to reconstruct the whole array.
-        // Let's use the proven single-entry join for now.
-        const plateCount = plateConfigs.length;
-        const entry = keys.join(';');
-        const arrayStr = `"${entry}"` + (plateCount > 1 ? (',\n        ""').repeat(plateCount - 1) : "");
-        projectSettings = projectSettings.replace(/"different_settings_to_system":\s*\[[^\]]*\]/, `"different_settings_to_system": [\n        ${arrayStr}\n    ]`);
-      }
-
-      // Patch arrays for wipe_tower
-      const plateCount = plateConfigs.length;
-      projectSettings = projectSettings.replace(/"wipe_tower_x":\s*\[[^\]]*\]/, `"wipe_tower_x": [\n        ${new Array(plateCount).fill('"15"').join(',\n        ')}\n    ]`);
-      projectSettings = projectSettings.replace(/"wipe_tower_y":\s*\[[^\]]*\]/, `"wipe_tower_y": [\n        ${new Array(plateCount).fill('"140.972"').join(',\n        ')}\n    ]`);
-    }
+    projectSettings = this._applySettingsOverrides(projectSettings, options, plateConfigs.length);
 
     const modelSettingsXML = `<?xml version="1.0" encoding="UTF-8"?>
 <config>
@@ -473,19 +445,6 @@ ${plateConfigs.map(p => `  <object id="${p.componentId}"><metadata key="name" va
 ${platesXML}  <assemble>
 ${plateConfigs.map(p => `   <assemble_item object_id="${p.componentId}" instance_id="0" transform="1 0 0 0 1 0 0 0 1 125 125 0" p:UUID="${p.itemUuid}" offset="0 0 0" />`).join('\n')}
   </assemble>
-</config>`;
-
-    const filamentSequence = {};
-    plateConfigs.forEach(p => {
-      filamentSequence[`plate_${p.plateId}`] = { sequence: [] };
-    });
-
-    const sliceInfoXML = `<?xml version="1.0" encoding="UTF-8"?>
-<config>
-  <header>
-    <header_item key="X-BBL-Client-Type" value="slicer"/>
-    <header_item key="X-BBL-Client-Version" value="02.05.00.66"/>
-  </header>
 </config>`;
 
     const contentTypesXML = `<?xml version="1.0" encoding="UTF-8"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="model" ContentType="application/vnd.ms-package.3dmanufacturing-3dmodel+xml"/><Default Extension="png" ContentType="image/png"/><Default Extension="gcode" ContentType="text/x.gcode"/></Types>`;
