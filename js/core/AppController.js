@@ -8,7 +8,7 @@ import DiceRenderer from '../diceRenderer.js';
 import ExporterFactory from '../exporters/ExporterFactory.js';
 import SettingsManager from './SettingsManager.js';
 import UIManager from './UIManager.js';
-import { DEFAULT_DIE_COLOR, DEFAULT_POINT_COLOR, DEFAULT_GRID_SIZE } from '../constants.js';
+import * as CONST from '../constants.js';
 import { validateFile } from '../utils/validators.js';
 
 export default class AppController {
@@ -25,13 +25,13 @@ export default class AppController {
 
         // Initialize managers
         const defaults = {
-            gridSize: DEFAULT_GRID_SIZE,
-            brightness: 0,
-            contrast: 0,
-            dieColor: DEFAULT_DIE_COLOR,
-            pointColor: DEFAULT_POINT_COLOR,
+            gridSize: CONST.DEFAULT_GRID_SIZE,
+            brightness: CONST.DEFAULT_BRIGHTNESS,
+            contrast: CONST.DEFAULT_CONTRAST,
+            dieColor: CONST.DEFAULT_DIE_COLOR,
+            pointColor: CONST.DEFAULT_POINT_COLOR,
             sourceGrayscale: true,
-            diceSize: 10,
+            diceSize: CONST.DEFAULT_DICE_SIZE_MM,
             invertOrder: false,
             invertColor: false,
         };
@@ -44,7 +44,7 @@ export default class AppController {
 
         // Performance: Cache for processed results
         this.resultCache = new Map();
-        this.maxCacheSize = 5;
+        this.maxCacheSize = CONST.MAX_CACHE_SIZE;
     }
 
     /**

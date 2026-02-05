@@ -1,11 +1,13 @@
+import * as CONST from './constants.js';
+
 export default class DiceRenderer {
   constructor() {
     this.masterDiceImages = [];
     this.tintedDiceCanvases = [];
     this.imagesLoaded = false;
     this.currentColors = {
-      dieColor: '#000000',
-      pointColor: '#ffffff',
+      dieColor: CONST.DEFAULT_DIE_COLOR,
+      pointColor: CONST.DEFAULT_POINT_COLOR,
     };
   }
 
@@ -51,17 +53,19 @@ export default class DiceRenderer {
    */
   generateTintedDice(dieColor, pointColor) {
     this.currentColors = { dieColor, pointColor };
+    const pRGB = this._hexToRgb(pointColor);
+    const bRGB = this._hexToRgb(dieColor);
+
+    // Pre-calculate 32-bit values for Uint32Array (Little Endian: ABGR)
+    const p32 = (255 << 24) | (pRGB.b << 16) | (pRGB.g << 8) | pRGB.r;
+    const b32 = (255 << 24) | (bRGB.b << 16) | (bRGB.g << 8) | bRGB.r;
+
     this.tintedDiceCanvases = this.masterDiceImages.map((img) => {
       const canvas = document.createElement('canvas');
       canvas.width = img.width;
       canvas.height = img.height;
       const ctx = canvas.getContext('2d');
 
-      // 1. Draw Background (Die Body)
-      ctx.fillStyle = dieColor;
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-      // 2. Draw Die Mask and swap colors at pixel level
       const tempCanvas = document.createElement('canvas');
       tempCanvas.width = img.width;
       tempCanvas.height = img.height;
@@ -69,26 +73,14 @@ export default class DiceRenderer {
       tempCtx.drawImage(img, 0, 0);
 
       const imageData = tempCtx.getImageData(0, 0, img.width, img.height);
-      const data = imageData.data;
+      const data32 = new Uint32Array(imageData.data.buffer);
 
-      // Binary swap: pixels closer to white get pointColor, others stay dieColor
-      // Current dice are white dots on black bg
-      const p = this._hexToRgb(pointColor);
-      const b = this._hexToRgb(dieColor);
-
-      for (let i = 0; i < data.length; i += 4) {
-        const avg = (data[i] + data[i + 1] + data[i + 2]) / 3;
-        if (avg > 128) {
-          data[i] = p.r;
-          data[i + 1] = p.g;
-          data[i + 2] = p.b;
-          data[i + 3] = 255; // Keep points opaque
-        } else {
-          data[i] = b.r;
-          data[i + 1] = b.g;
-          data[i + 2] = b.b;
-          data[i + 3] = 255; // Body opaque
-        }
+      for (let i = 0; i < data32.length; i++) {
+        // Source is white dots on black. 
+        // We pick one channel (e.g., Red) to check if it's "whiteish"
+        // (imageData.data[i*4] > 128)
+        const r = imageData.data[i * 4];
+        data32[i] = r > 128 ? p32 : b32;
       }
 
       ctx.putImageData(imageData, 0, 0);
@@ -164,7 +156,7 @@ export default class DiceRenderer {
   /**
    * Render with animation using tinted images
    */
-  async renderDiceGridAnimated(canvas, diceLevels, gridWidth, gridHeight, onProgress = null) {
+  renderDiceGridAnimated(canvas, diceLevels, gridWidth, gridHeight, onProgress = null) {
     if (!this.imagesLoaded) throw new Error('Dice images not loaded');
     const ctx = canvas.getContext('2d');
     const maxCanvasSize = 1200;
@@ -179,36 +171,49 @@ export default class DiceRenderer {
 
     const chunkSize = 500;
     const totalDice = gridWidth * gridHeight;
+    let startIndex = 0;
 
-    for (let startIndex = 0; startIndex < totalDice; startIndex += chunkSize) {
-      const endIndex = Math.min(startIndex + chunkSize, totalDice);
-      for (let i = startIndex; i < endIndex; i++) {
-        const x = i % gridWidth;
-        const y = Math.floor(i / gridWidth);
-        const diceLevel = diceLevels[i];
-        const diceImage = this.tintedDiceCanvases[diceLevel - 1];
+    return new Promise((resolve) => {
+      const renderChunk = () => {
+        const endIndex = Math.min(startIndex + chunkSize, totalDice);
 
-        if (diceImage) {
-          ctx.drawImage(diceImage, x * diceSize, y * diceSize, diceSize, diceSize);
+        for (let i = startIndex; i < endIndex; i++) {
+          const x = i % gridWidth;
+          const y = Math.floor(i / gridWidth);
+          const diceLevel = diceLevels[i];
+          const diceImage = this.tintedDiceCanvases[diceLevel - 1];
+
+          if (diceImage) {
+            ctx.drawImage(diceImage, x * diceSize, y * diceSize, diceSize, diceSize);
+          }
         }
-      }
-      if (onProgress) onProgress(Math.round((endIndex / totalDice) * 100));
-      if (endIndex < totalDice) await new Promise((resolve) => setTimeout(resolve, 0));
-    }
 
-    // Draw #333 1px grid lines
-    ctx.strokeStyle = '#333333';
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    for (let x = 0; x <= gridWidth; x++) {
-      ctx.moveTo(x * diceSize, 0);
-      ctx.lineTo(x * diceSize, gridHeight * diceSize);
-    }
-    for (let y = 0; y <= gridHeight; y++) {
-      ctx.moveTo(0, y * diceSize);
-      ctx.lineTo(gridWidth * diceSize, y * diceSize);
-    }
-    ctx.stroke();
+        startIndex = endIndex;
+
+        if (onProgress) onProgress(Math.round((startIndex / totalDice) * 100));
+
+        if (startIndex < totalDice) {
+          requestAnimationFrame(renderChunk);
+        } else {
+          // Draw #333 1px grid lines once done
+          ctx.strokeStyle = '#333333';
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          for (let x = 0; x <= gridWidth; x++) {
+            ctx.moveTo(x * diceSize, 0);
+            ctx.lineTo(x * diceSize, gridHeight * diceSize);
+          }
+          for (let y = 0; y <= gridHeight; y++) {
+            ctx.moveTo(0, y * diceSize);
+            ctx.lineTo(gridWidth * diceSize, y * diceSize);
+          }
+          ctx.stroke();
+          resolve();
+        }
+      };
+
+      requestAnimationFrame(renderChunk);
+    });
   }
 
   getDiceStats(diceLevels) {

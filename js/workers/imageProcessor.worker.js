@@ -6,9 +6,11 @@
 self.onmessage = function (e) {
     if (e.data.type === 'process') {
         try {
-            const { imageData, gridSize, brightness, contrast, showGrayscale, invertOrder } = e.data.payload;
             const result = processImage(imageData, gridSize, brightness, contrast, showGrayscale, invertOrder);
-            self.postMessage({ type: 'success', payload: result });
+
+            // Use Transferable for the result buffer
+            const buffer = result.visualData.buffer;
+            self.postMessage({ type: 'success', payload: result }, [buffer]);
         } catch (error) {
             self.postMessage({ type: 'error', error: error.message });
         }
