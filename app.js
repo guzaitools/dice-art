@@ -39,7 +39,10 @@ const domElements = {
   dieColorInput: document.getElementById('dieColor'),
   pointColorInput: document.getElementById('pointColor'),
   sourceGrayscaleToggle: document.getElementById('sourceGrayscaleToggle'),
+  invertOrderToggle: document.getElementById('invertOrderToggle'),
+  invertColorToggle: document.getElementById('invertColorToggle'),
   resetBtn: document.getElementById('resetBtn'),
+  startOverBtn: document.getElementById('startOverBtn'),
 
   // Export buttons
   downloadPdfBtn: document.getElementById('downloadPdfBtn'),
@@ -97,6 +100,8 @@ function applySettingsToUI() {
   domElements.dieColorInput.value = settings.dieColor;
   domElements.pointColorInput.value = settings.pointColor;
   domElements.sourceGrayscaleToggle.checked = settings.sourceGrayscale;
+  domElements.invertOrderToggle.checked = settings.invertOrder;
+  domElements.invertColorToggle.checked = settings.invertColor;
 
   // Update color selectors
   updateColorSelectors('dieColorSelectors', settings.dieColor);
@@ -179,6 +184,29 @@ function setupEventListeners() {
     app.resetParameters();
   });
 
+  // NEW: Invert Order toggle
+  if (domElements.invertOrderToggle) {
+    domElements.invertOrderToggle.addEventListener('change', (e) => {
+      app.updateSetting('invertOrder', e.target.checked);
+    });
+  }
+
+  // NEW: Invert Color toggle
+  if (domElements.invertColorToggle) {
+    domElements.invertColorToggle.addEventListener('change', (e) => {
+      app.updateDiceColors(e.target.checked);
+    });
+  }
+
+  // NEW: Start Over button
+  if (domElements.startOverBtn) {
+    domElements.startOverBtn.addEventListener('click', () => {
+      if (confirm('Are you sure you want to start over? This will discard your current image.')) {
+        app.startOver();
+      }
+    });
+  }
+
   // Comparison slider
   domElements.comparisonSlider.addEventListener('input', (e) => {
     const percent = e.target.value;
@@ -222,12 +250,6 @@ function setupExportButtons() {
   // PDF Export
   if (domElements.downloadPdfBtn) {
     domElements.downloadPdfBtn.addEventListener('click', async () => {
-      const btn = domElements.downloadPdfBtn;
-      const originalHtml = btn.innerHTML;
-      btn.disabled = true;
-      btn.innerHTML = '<i data-lucide="loader" class="animate-spin"></i> Generating PDF...';
-      if (window.lucide) window.lucide.createIcons();
-
       try {
         const blob = await app.handleExport('pdf', { autoSave: false });
         if (blob) {
@@ -241,11 +263,7 @@ function setupExportButtons() {
           URL.revokeObjectURL(url);
         }
       } catch (error) {
-        alert('Error generating PDF');
-      } finally {
-        btn.disabled = false;
-        btn.innerHTML = originalHtml;
-        if (window.lucide) window.lucide.createIcons();
+        // AppController already handles error reporting
       }
     });
   }
@@ -326,12 +344,6 @@ function setupExportButtons() {
   // Modal PDF button
   if (domElements.modalDownloadPdfBtn) {
     domElements.modalDownloadPdfBtn.addEventListener('click', async () => {
-      const btn = domElements.modalDownloadPdfBtn;
-      const originalHtml = btn.innerHTML;
-      btn.disabled = true;
-      btn.innerHTML = '<i data-lucide="loader" class="animate-spin"></i>';
-      if (window.lucide) window.lucide.createIcons();
-
       try {
         const blob = await app.handleExport('pdf', { autoSave: false });
         if (blob) {
@@ -345,11 +357,7 @@ function setupExportButtons() {
           URL.revokeObjectURL(url);
         }
       } catch (error) {
-        alert('Error generating PDF');
-      } finally {
-        btn.disabled = false;
-        btn.innerHTML = originalHtml;
-        if (window.lucide) window.lucide.createIcons();
+        // AppController already handles error reporting
       }
     });
   }
@@ -357,12 +365,6 @@ function setupExportButtons() {
   // OpenSCAD Export
   if (domElements.downloadScadBtn) {
     domElements.downloadScadBtn.addEventListener('click', async () => {
-      const btn = domElements.downloadScadBtn;
-      const originalHtml = btn.innerHTML;
-      btn.disabled = true;
-      btn.innerHTML = '<i data-lucide="loader" class="animate-spin"></i> Generating SCAD...';
-      if (window.lucide) window.lucide.createIcons();
-
       try {
         const blob = await app.handleExport('scad', { autoSave: false });
         if (blob) {
@@ -376,11 +378,7 @@ function setupExportButtons() {
           URL.revokeObjectURL(url);
         }
       } catch (error) {
-        alert('Error generating OpenSCAD');
-      } finally {
-        btn.disabled = false;
-        btn.innerHTML = originalHtml;
-        if (window.lucide) window.lucide.createIcons();
+        // AppController already handles error reporting
       }
     });
   }
@@ -388,20 +386,10 @@ function setupExportButtons() {
   // Multi-plate export
   if (domElements.exportMultiPlateBtn) {
     domElements.exportMultiPlateBtn.addEventListener('click', async () => {
-      const btn = domElements.exportMultiPlateBtn;
-      const originalHtml = btn.innerHTML;
-      btn.disabled = true;
-      btn.innerHTML = '<i data-lucide="loader" class="animate-spin"></i> Generating...';
-      if (window.lucide) window.lucide.createIcons();
-
       try {
         await app.handleExport('3mf', { multiPlate: true, raft: true });
       } catch (error) {
-        alert('Error generating multi-plate 3MF');
-      } finally {
-        btn.disabled = false;
-        btn.innerHTML = originalHtml;
-        if (window.lucide) window.lucide.createIcons();
+        // AppController already handles error reporting
       }
     });
   }

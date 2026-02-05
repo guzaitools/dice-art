@@ -110,5 +110,7 @@ export function sanitizeSettings(settings) {
         pointColor: sanitizeHexColor(settings.pointColor, DEFAULT_POINT_COLOR),
         sourceGrayscale: Boolean(settings.sourceGrayscale),
         diceSize: sanitizeDiceSize(settings.diceSize),
+        invertOrder: Boolean(settings.invertOrder),
+        invertColor: Boolean(settings.invertColor),
     };
 }

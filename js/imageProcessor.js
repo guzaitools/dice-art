@@ -179,7 +179,7 @@ export default class ImageProcessor {
    * @param {number} contrast - Contrast adjustment
    * @returns {Promise<Object>} Processing result with dice levels and dimensions
    */
-  processImage(canvas, gridSize, brightness = 0, contrast = 0, showGrayscale = true) {
+  processImage(canvas, gridSize, brightness = 0, contrast = 0, showGrayscale = true, invertOrder = false) {
     if (!this.originalImage) throw new Error('No image loaded');
 
     // If no worker (fallback or not init), init it
@@ -231,7 +231,8 @@ export default class ImageProcessor {
           gridSize,
           brightness,
           contrast,
-          showGrayscale
+          showGrayscale,
+          invertOrder
         }
       });
     });

@@ -6,8 +6,8 @@
 self.onmessage = function (e) {
     if (e.data.type === 'process') {
         try {
-            const { imageData, gridSize, brightness, contrast, showGrayscale } = e.data.payload;
-            const result = processImage(imageData, gridSize, brightness, contrast, showGrayscale);
+            const { imageData, gridSize, brightness, contrast, showGrayscale, invertOrder } = e.data.payload;
+            const result = processImage(imageData, gridSize, brightness, contrast, showGrayscale, invertOrder);
             self.postMessage({ type: 'success', payload: result });
         } catch (error) {
             self.postMessage({ type: 'error', error: error.message });
@@ -15,7 +15,7 @@ self.onmessage = function (e) {
     }
 };
 
-function processImage(imageData, gridSize, brightness, contrast, showGrayscale) {
+function processImage(imageData, gridSize, brightness, contrast, showGrayscale, invertOrder = false) {
     // 1. Grayscale Conversion (if needed, but we assume input is RGBA)
     // Actually, we should process the raw data.
     // Since we can't use DOM API (Canvas) in Worker, we must operate on ImageData (Uint8ClampedArray).
@@ -58,7 +58,7 @@ function processImage(imageData, gridSize, brightness, contrast, showGrayscale) 
 
     // Pixelate Logic Data for Dice Mapping
     const gridPixels = pixelateToGrid({ data: logicData, width, height }, gridWidth, gridHeight);
-    const diceLevels = mapToDiceLevels(gridPixels);
+    const diceLevels = mapToDiceLevels(gridPixels, invertOrder);
 
     return {
         diceLevels,
@@ -107,16 +107,25 @@ function pixelateToGrid(imgDataObj, gridWidth, gridHeight) {
     return gridData;
 }
 
-function mapToDiceLevels(gridData) {
+function mapToDiceLevels(gridData, invertOrder = false) {
     const diceLevels = new Uint8Array(gridData.length);
     for (let i = 0; i < gridData.length; i++) {
         const val = gridData[i];
-        if (val >= 213) diceLevels[i] = 6;
-        else if (val >= 170) diceLevels[i] = 5;
-        else if (val >= 128) diceLevels[i] = 4;
-        else if (val >= 85) diceLevels[i] = 3;
-        else if (val >= 43) diceLevels[i] = 2;
-        else diceLevels[i] = 1;
+        let level;
+        if (val >= 213) level = 6;
+        else if (val >= 170) level = 5;
+        else if (val >= 128) level = 4;
+        else if (val >= 85) level = 3;
+        else if (val >= 43) level = 2;
+        else level = 1;
+
+        // If inverted, flip the level: 1->6, 2->5, 3->4, etc.
+        // Formula: 7 - level
+        if (invertOrder) {
+            level = 7 - level;
+        }
+
+        diceLevels[i] = level;
     }
     return diceLevels;
 }

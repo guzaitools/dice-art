@@ -15,27 +15,27 @@ export default class UIManager {
 
     /**
      * Show a specific section and hide others
-     * @param {string} sectionName - Name of section to show ('upload', 'processing', 'examples')
+     * @param {string} sectionName - Name of section to show ('upload', 'processing')
      */
     showSection(sectionName) {
-        const sections = {
-            upload: this.elements.uploadSection,
-            processing: this.elements.processingSection,
-            examples: this.elements.examplesSection,
-        };
-
-        // Hide all sections
-        Object.values(sections).forEach(section => section?.classList.add('hidden'));
-
-        // Show requested section
-        if (sections[sectionName]) {
-            sections[sectionName].classList.remove('hidden');
-            this.currentSection = sectionName;
+        if (sectionName === 'upload') {
+            this.elements.uploadSection?.classList.remove('hidden');
+            this.elements.processingSection?.classList.add('hidden');
+        } else if (sectionName === 'processing') {
+            this.elements.uploadSection?.classList.add('hidden');
+            this.elements.processingSection?.classList.remove('hidden');
         }
 
-        // Show/hide header based on section
-        if (sectionName === 'processing' && this.elements.appHeader) {
+        this.currentSection = sectionName;
+
+        // Ensure header is always shown now
+        if (this.elements.appHeader) {
             this.elements.appHeader.classList.remove('hidden');
+        }
+
+        // Ensure examples are always shown now
+        if (this.elements.examplesSection) {
+            this.elements.examplesSection.classList.remove('hidden');
         }
     }
 

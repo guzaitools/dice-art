@@ -11,7 +11,7 @@
   <meta name="theme-color" content="#050208" />
   <link rel="icon" type="image/png" href="/assets/favicon.png" />
   <meta http-equiv="Content-Security-Policy"
-    content="default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline' blob: https://cdn.tailwindcss.com https://unpkg.com; style-src 'self' 'unsafe-inline' https://unpkg.com; img-src 'self' data: blob:; worker-src 'self' blob:;">
+    content="default-src 'self'; connect-src 'self' https://unpkg.com https://fonts.gstatic.com; script-src 'self' 'unsafe-eval' 'unsafe-inline' blob: https://cdn.tailwindcss.com https://unpkg.com; style-src 'self' 'unsafe-inline' https://unpkg.com https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://lh3.googleusercontent.com; worker-src 'self' blob:;">
   <link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png" />
 
   <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
@@ -393,6 +393,22 @@
                 <input type="hidden" id="pointColor" value="#ffffff" />
 
                 <div class="flex justify-between items-center">
+                  <span class="text-[9px] uppercase tracking-[0.3em] text-gray-400 font-black">Invert Dice Order</span>
+                  <label class="switch">
+                    <input type="checkbox" id="invertOrderToggle" />
+                    <span class="slider-toggle"></span>
+                  </label>
+                </div>
+
+                <div class="flex justify-between items-center">
+                  <span class="text-[9px] uppercase tracking-[0.3em] text-gray-400 font-black">Invert Dice Color</span>
+                  <label class="switch">
+                    <input type="checkbox" id="invertColorToggle" checked />
+                    <span class="slider-toggle"></span>
+                  </label>
+                </div>
+
+                <div class="flex justify-between items-center">
                   <span class="text-[9px] uppercase tracking-[0.3em] text-gray-400 font-black">Grayscale Preview</span>
                   <label class="switch">
                     <input type="checkbox" id="sourceGrayscaleToggle" checked />
@@ -402,10 +418,14 @@
               </div>
             </div>
 
-            <div class="mt-10">
+            <div class="mt-10 space-y-4">
               <button id="resetBtn"
-                class="w-full py-4 bg-white/5 border border-white/10 rounded-2xl text-[9px] uppercase tracking-widest font-black hover:bg-white/10 transition-all uppercase">
+                class="w-full py-3 bg-white/5 border border-white/10 rounded-2xl text-[9px] uppercase tracking-widest font-black hover:bg-white/10 transition-all uppercase">
                 Reset Parameters
+              </button>
+              <button id="startOverBtn"
+                class="w-full py-3 bg-red-500/10 border border-red-500/20 rounded-2xl text-[9px] uppercase tracking-widest font-black text-red-400 hover:bg-red-500/20 transition-all uppercase">
+                Start Over
               </button>
             </div>
           </div>
@@ -413,11 +433,19 @@
       </div>
 
       <div id="loadingOverlay"
-        class="absolute inset-0 bg-[#050208]/95 flex flex-col items-center justify-center hidden rounded-[3rem] z-[200] backdrop-blur-3xl">
-        <div class="w-16 h-16 border-2 border-primary border-t-transparent rounded-full animate-spin mb-6"></div>
-        <p class="text-[10px] tracking-[0.8em] text-cyan-vibe uppercase animate-pulse font-black">
-          Reconstructing Reality...
-        </p>
+        class="absolute inset-0 z-[200] flex flex-col items-center justify-center hidden pointer-events-none">
+
+        <!-- Backdrop (optional, slight dim) -->
+        <div class="absolute inset-0 bg-black/20 backdrop-blur-[1px]"></div>
+
+        <!-- Spinner Box -->
+        <div
+          class="relative bg-black/80 backdrop-blur-md border border-white/10 rounded-3xl p-8 flex flex-col items-center shadow-2xl animate-in zoom-in-95 duration-200">
+          <div class="w-12 h-12 border-2 border-primary border-t-transparent rounded-full animate-spin mb-4"></div>
+          <p class="text-[10px] tracking-[0.4em] text-cyan-vibe uppercase animate-pulse font-black">
+            Updating...
+          </p>
+        </div>
       </div>
     </section>
 

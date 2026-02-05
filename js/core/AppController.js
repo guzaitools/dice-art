@@ -32,6 +32,8 @@ export default class AppController {
             pointColor: DEFAULT_POINT_COLOR,
             sourceGrayscale: true,
             diceSize: 10,
+            invertOrder: false,
+            invertColor: false,
         };
 
         this.settingsManager = new SettingsManager(defaults);
@@ -145,40 +147,47 @@ export default class AppController {
 
         try {
             const settings = this.settingsManager.getSettings();
+            let result;
 
-            // Performance: Check cache
+            // Performance: Check cache for PROCESSING result (expensive part)
+            // Note: Cache key excludes colors as they don't affect dice levels
             const cacheKey = this.generateCacheKey(settings);
+
             if (this.resultCache.has(cacheKey)) {
-                console.log('Using cached result');
-                const cachedResult = this.resultCache.get(cacheKey);
-                await this.applyResult(cachedResult);
-                return cachedResult;
+                console.log('Using cached processing result');
+                result = this.resultCache.get(cacheKey);
+            } else {
+                this.uiManager.setLoading(true, 'Reprocessing...');
+
+                // Reprocess image
+                result = await this.imageProcessor.processImage(
+                    this.uiManager.elements.originalCanvas,
+                    settings.gridSize,
+                    settings.brightness,
+                    settings.contrast,
+                    settings.sourceGrayscale,
+                    settings.invertOrder
+                );
+
+                // Cache result
+                this.cacheResult(cacheKey, result);
             }
 
-            this.uiManager.setLoading(true, 'Reprocessing...');
+            // RENDER STEP (Always run this, even on cache hit)
 
-            // Reprocess image
-            const result = await this.imageProcessor.processImage(
-                this.uiManager.elements.originalCanvas,
-                settings.gridSize,
-                settings.brightness,
-                settings.contrast,
-                settings.sourceGrayscale
-            );
-
-            // Update dice colors if changed
+            // Update dice colors if changed (fast)
             this.diceRenderer.generateTintedDice(settings.dieColor, settings.pointColor);
 
-            // Re-render dice art
+            // Re-render dice art (fast-ish)
+            // We use a shorter animation or no animation if it's a quick color swap? 
+            // For now, keep consistent animation or maybe speed it up?
+            // Let's use the standard render.
             await this.diceRenderer.renderDiceGridAnimated(
                 this.uiManager.elements.diceCanvas,
                 result.diceLevels,
                 result.gridWidth,
                 result.gridHeight
             );
-
-            // Cache result
-            this.cacheResult(cacheKey, result);
 
             // Update UI
             await this.applyResult(result);
@@ -210,7 +219,8 @@ export default class AppController {
      * @returns {string} Cache key
      */
     generateCacheKey(settings) {
-        return `${settings.gridSize}_${settings.brightness}_${settings.contrast}_${settings.sourceGrayscale}_${settings.dieColor}_${settings.pointColor}`;
+        // Exclude colors! They affect rendering, not processing.
+        return `${settings.gridSize}_${settings.brightness}_${settings.contrast}_${settings.sourceGrayscale}_${settings.invertOrder}`;
     }
 
     /**
@@ -253,6 +263,11 @@ export default class AppController {
         this.uiManager.updateSliderValue(this.uiManager.elements.brightnessValue, defaults.brightness);
         this.uiManager.elements.brightnessSlider.value = defaults.brightness;
 
+        // Reset Toggles
+        if (this.uiManager.elements.invertOrderToggle) this.uiManager.elements.invertOrderToggle.checked = defaults.invertOrder;
+        if (this.uiManager.elements.invertColorToggle) this.uiManager.elements.invertColorToggle.checked = defaults.invertColor;
+        if (this.uiManager.elements.sourceGrayscaleToggle) this.uiManager.elements.sourceGrayscaleToggle.checked = defaults.sourceGrayscale;
+
         // Reprocess if image is loaded
         if (this.imageProcessor.originalImage) {
             await this.reprocessImage();
@@ -260,10 +275,10 @@ export default class AppController {
     }
 
     /**
-   * Handle export request
-   * @param {string} format - Export format ('pdf', '3mf', 'scad')
-   * @param {Object} options - Format-specific export options
-   */
+     * Handle export request
+     * @param {string} format - Export format ('pdf', '3mf', 'scad')
+     * @param {Object} options - Format-specific export options
+     */
     async handleExport(format, options = {}) {
         if (!this.lastResult) {
             this.uiManager.showError('No image processed yet');
@@ -288,10 +303,13 @@ export default class AppController {
         };
 
         try {
+            this.uiManager.setLoading(true, `Generating ${format.toUpperCase()}...`);
             const blob = await this.exporterFactory.export(format, exportData, exportOptions);
+            this.uiManager.setLoading(false);
             console.log(`${format.toUpperCase()} export successful`);
             return blob;
         } catch (error) {
+            this.uiManager.setLoading(false);
             console.error(`Error exporting ${format}:`, error);
             this.uiManager.showError(`Error generating ${format.toUpperCase()}`);
             throw error;
@@ -306,7 +324,7 @@ export default class AppController {
     async updateSetting(key, value) {
         this.settingsManager.updateSetting(key, value);
 
-        // Reprocess if image is loaded
+        // Reprocess if image is loaded (reprocessImage already handles setLoading)
         if (this.imageProcessor.originalImage) {
             await this.reprocessImage();
         }
@@ -333,5 +351,44 @@ export default class AppController {
      */
     getLastResult() {
         return this.lastResult;
+    }
+    /**
+     * Start over completely
+     */
+    async startOver() {
+        // Reset settings
+        await this.resetParameters();
+
+        // Clear result
+        this.lastResult = null;
+
+        // Clear original image in processor
+        this.imageProcessor.originalImage = null;
+        this.imageProcessor.processedImageData = null;
+
+        // Reset UI via manager
+        this.uiManager.showSection('upload');
+        // Reset file input
+        if (this.uiManager.elements.fileInput) {
+            this.uiManager.elements.fileInput.value = '';
+        }
+
+        // Disable export buttons
+        this.uiManager.setExportButtonsEnabled(false);
+    }
+
+    /**
+     * Update dice colors based on toggle
+     * @param {boolean} isInverted - If true, use White background / Black pips
+     */
+    updateDiceColors(isInverted) {
+        const newDieColor = isInverted ? '#ffffff' : '#000000';
+        const newPointColor = isInverted ? '#000000' : '#ffffff';
+
+        this.updateSetting('dieColor', newDieColor);
+        this.updateSetting('pointColor', newPointColor);
+        this.updateSetting('invertColor', isInverted);
+
+        // This triggers reprocessImage -> re-render
     }
 }
