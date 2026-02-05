@@ -276,7 +276,7 @@ export default class AppController {
 
     /**
      * Handle export request
-     * @param {string} format - Export format ('pdf', '3mf', 'scad')
+     * @param {string} format - Export format ('pdf', '3mf')
      * @param {Object} options - Format-specific export options
      */
     async handleExport(format, options = {}) {

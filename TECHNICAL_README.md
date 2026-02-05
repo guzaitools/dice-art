@@ -1,7 +1,7 @@
 # Dice Art - Technical Documentation
 
 ## Overview
-Dice Art is a client-side JavaScript application that transforms images into mosaic art using 6-sided dice. It allows users to upload images, adjust parameters (grid size, brightness, contrast), and export the result as PDF instructions, 3D printable models (3MF), or OpenSCAD scripts.
+Dice Art is a client-side JavaScript application that transforms images into mosaic art using 6-sided dice. It allows users to upload images, adjust parameters (grid size, brightness, contrast), and export the result as PDF instructions or 3D printable models (3MF).
 
 ## Architecture
 
@@ -57,11 +57,10 @@ graph TD
 -   **`DiceRenderer`**: Visualizes the dice grid on a Canvas. It uses pre-rendered tinted dice images to ensure performance.
 
 ### 4. **Exporting (Strategy Pattern)**
--   **`ExporterFactory`**: Returns the appropriate exporter based on format ('pdf', '3mf', 'scad').
+-   **`ExporterFactory`**: Returns the appropriate exporter based on format ('pdf', '3mf').
 -   **`ExporterStrategy`**: Base class defining the export interface.
 -   **`PDFExporterStrategy`**: Generates printable instructions using `jspdf`.
 -   **`ThreeMFExporterStrategy`**: Generates 3D models using `jszip` and XML templating.
--   **`SCADExporterStrategy`**: Generates OpenSCAD scripts.
 
 ## Directory Structure
 

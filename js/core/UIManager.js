@@ -148,7 +148,6 @@ export default class UIManager {
             this.elements.downloadPdfBtn,
             this.elements.export3dPrintBtn,
             this.elements.exportMultiPlateBtn,
-            this.elements.downloadScadBtn,
         ];
 
         exportButtons.forEach(btn => {

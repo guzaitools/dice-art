@@ -361,55 +361,35 @@ function setupExportButtons() {
     });
   }
 
-  // OpenSCAD Export
-  if (domElements.downloadScadBtn) {
-    domElements.downloadScadBtn.addEventListener('click', async () => {
-      try {
-        const blob = await app.handleExport('scad', { autoSave: false });
-        if (blob) {
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = 'dice-art-script.scad';
-          document.body.appendChild(a);
-          a.click();
-          document.body.removeChild(a);
-          URL.revokeObjectURL(url);
-        }
-      } catch (error) {
-        // AppController already handles error reporting
-      }
-    });
-  }
+}
 
-  // Multi-plate export
-  if (domElements.exportMultiPlateBtn) {
-    domElements.exportMultiPlateBtn.addEventListener('click', async () => {
-      try {
-        await app.handleExport('3mf', { multiPlate: true, raft: true });
-      } catch (error) {
-        // AppController already handles error reporting
-      }
-    });
-  }
-
-  // Dice size buttons in modal
-  const sizeButtons = document.querySelectorAll('.size-btn');
-  sizeButtons.forEach(btn => {
-    btn.addEventListener('click', () => {
-      const size = parseInt(btn.getAttribute('data-size'));
-      app.updateSetting('diceSize', size);
-
-      // Update UI
-      sizeButtons.forEach(b => {
-        b.classList.remove('border-primary', 'bg-primary/20');
-        b.classList.add('border-white/10');
-      });
-      btn.classList.add('border-primary', 'bg-primary/20');
-      btn.classList.remove('border-white/10');
-    });
+// Multi-plate export
+if (domElements.exportMultiPlateBtn) {
+  domElements.exportMultiPlateBtn.addEventListener('click', async () => {
+    try {
+      await app.handleExport('3mf', { multiPlate: true, raft: true });
+    } catch (error) {
+      // AppController already handles error reporting
+    }
   });
 }
+
+// Dice size buttons in modal
+const sizeButtons = document.querySelectorAll('.size-btn');
+sizeButtons.forEach(btn => {
+  btn.addEventListener('click', () => {
+    const size = parseInt(btn.getAttribute('data-size'));
+    app.updateSetting('diceSize', size);
+
+    // Update UI
+    sizeButtons.forEach(b => {
+      b.classList.remove('border-primary', 'bg-primary/20');
+      b.classList.add('border-white/10');
+    });
+    btn.classList.add('border-primary', 'bg-primary/20');
+    btn.classList.remove('border-white/10');
+  });
+});
 
 /**
  * Handle file selection
